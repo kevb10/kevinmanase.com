@@ -1,0 +1,90 @@
+import { notFound } from "next/navigation";
+import { format } from "date-fns";
+import { MDXRemote } from "next-mdx-remote/rsc";
+import rehypeHighlight from "rehype-highlight";
+import rehypeSlug from "rehype-slug";
+import remarkGfm from "remark-gfm";
+import { getPostBySlug, getAllPostSlugs } from "@/lib/posts";
+import { mdxComponents } from "@/components/mdx-components";
+import type { Metadata } from "next";
+import Link from "next/link";
+
+interface Props {
+  params: Promise<{ slug: string }>;
+}
+
+export async function generateStaticParams() {
+  const slugs = getAllPostSlugs();
+  return slugs.map((slug) => ({ slug }));
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  const post = getPostBySlug(slug);
+
+  if (!post) {
+    return {};
+  }
+
+  return {
+    title: post.title,
+    description: post.description,
+    openGraph: {
+      title: post.title,
+      description: post.description,
+      type: "article",
+      publishedTime: post.date,
+      authors: ["Kevin Manase"],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: post.title,
+      description: post.description,
+    },
+  };
+}
+
+export default async function PostPage({ params }: Props) {
+  const { slug } = await params;
+  const post = getPostBySlug(slug);
+
+  if (!post) {
+    notFound();
+  }
+
+  return (
+    <article>
+      <header className="mb-10">
+        <Link
+          href="/"
+          className="text-sm text-zinc-500 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors mb-8 inline-block"
+        >
+          &larr; Back to writing
+        </Link>
+        <h1 className="font-serif text-3xl font-medium tracking-tight mb-3">
+          {post.title}
+        </h1>
+        <div className="flex items-center gap-3 text-sm text-zinc-500 dark:text-zinc-500">
+          <time dateTime={post.date}>
+            {format(new Date(post.date), "MMMM d, yyyy")}
+          </time>
+          <span>&middot;</span>
+          <span>{post.readingTime}</span>
+        </div>
+      </header>
+
+      <div className="prose-custom">
+        <MDXRemote
+          source={post.content}
+          components={mdxComponents}
+          options={{
+            mdxOptions: {
+              remarkPlugins: [remarkGfm],
+              rehypePlugins: [rehypeHighlight, rehypeSlug],
+            },
+          }}
+        />
+      </div>
+    </article>
+  );
+}

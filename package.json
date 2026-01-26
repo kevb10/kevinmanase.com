@@ -9,9 +9,16 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "date-fns": "^4.1.0",
+    "gray-matter": "^4.0.3",
     "next": "16.1.5",
+    "next-mdx-remote": "^5.0.0",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "reading-time": "^1.5.0",
+    "rehype-highlight": "^7.0.2",
+    "rehype-slug": "^6.0.0",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

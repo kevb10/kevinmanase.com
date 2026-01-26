@@ -1,26 +1,110 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-serif), ui-serif, Georgia, serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Syntax highlighting for code blocks */
+pre code.hljs {
+  display: block;
+  overflow-x: auto;
+  padding: 1em;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+code.hljs {
+  padding: 3px 5px;
+}
+
+.hljs {
+  color: #c9d1d9;
+  background: transparent;
+}
+
+.hljs-comment,
+.hljs-punctuation {
+  color: #8b949e;
+}
+
+.hljs-attr,
+.hljs-attribute,
+.hljs-meta,
+.hljs-selector-attr,
+.hljs-selector-class,
+.hljs-selector-id {
+  color: #7ee787;
+}
+
+.hljs-variable,
+.hljs-literal,
+.hljs-number,
+.hljs-doctag {
+  color: #79c0ff;
+}
+
+.hljs-params {
+  color: #c9d1d9;
+}
+
+.hljs-function {
+  color: #d2a8ff;
+}
+
+.hljs-class,
+.hljs-tag,
+.hljs-title,
+.hljs-built_in {
+  color: #7ee787;
+}
+
+.hljs-keyword,
+.hljs-type,
+.hljs-builtin-name,
+.hljs-meta-keyword,
+.hljs-template-tag,
+.hljs-template-variable {
+  color: #ff7b72;
+}
+
+.hljs-string,
+.hljs-undefined {
+  color: #a5d6ff;
+}
+
+.hljs-regexp {
+  color: #7ee787;
+}
+
+.hljs-symbol {
+  color: #79c0ff;
+}
+
+.hljs-selector-tag {
+  color: #ff7b72;
+}
+
+.hljs-quote,
+.hljs-deletion {
+  color: #ffa198;
+}
+
+.hljs-addition {
+  color: #7ee787;
+}
+
+/* Selection styling */
+::selection {
+  background: rgba(113, 113, 122, 0.3);
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Better focus styles */
+:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
 }
