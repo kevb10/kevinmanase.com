@@ -1,0 +1,256 @@
+---
+title: "Enforcing Test-First Development with Claude Code Hooks"
+description: "A bash script that blocks implementation plans until they include test files. No tests, no code."
+date: "2026-01-26"
+tags: ["testing", "claude-code", "hooks", "tdd"]
+published: true
+---
+
+Part of [my AI coding workflow](/posts/ai-coding-workflow). This is the script that validates plans have tests before implementation files.
+
+![testing gif](https://media.giphy.com/media/gw3IWyGkC0rsazTi/giphy.gif)
+
+## The Problem
+
+AI coding assistants will happily generate implementation without tests. Ask for a feature, you get the feature. Maybe tests later. Maybe never.
+
+This leads to:
+- Code that works until it doesn't
+- Features that drift from spec
+- No documentation of expected behavior
+- Regressions when you touch adjacent code
+
+I wanted Claude to literally be unable to proceed without test files in the plan.
+
+## The Solution
+
+A bash script that:
+1. Scans the plan for test file patterns
+2. Scans for implementation file patterns
+3. Checks that tests appear BEFORE implementation
+4. Returns JSON with pass/fail and issues
+
+If it fails, the [critique hook](/posts/multi-llm-plan-critique) blocks with exit code 2.
+
+## What It Checks
+
+<Mermaid chart={`
+flowchart TD
+    A[Plan Content] --> B{Has ## Test section?}
+    B -->|No| C[Issue: No test section]
+    B -->|Yes| D{Has test files?}
+    D -->|No| E[Issue: No test files]
+    D -->|Yes| F{Tests before impl?}
+    F -->|No| G[Issue: Wrong order]
+    F -->|Yes| H{Coverage ratio OK?}
+    H -->|<50%| I[Issue: Low coverage]
+    H -->|>=50%| J[PASS]
+    C --> K[FAIL]
+    E --> K
+    G --> K
+    I --> J
+`} />
+
+### Test File Patterns
+
+The script recognizes:
+- `test_*.py` (pytest)
+- `*_test.py` (pytest)
+- `*.test.ts` / `*.test.tsx` (vitest/jest)
+- `*.spec.ts` / `*.spec.tsx` (vitest/jest)
+- `tests/*.py`
+- `__tests__/*`
+
+### Implementation File Patterns
+
+Non-test files in:
+- `src/`
+- `app/`
+- `components/`
+- `lib/`
+- `services/`
+- `api/`
+- `models/`
+- `utils/`
+- `helpers/`
+
+## The Script
+
+```bash
+#!/bin/bash
+# Test-First Plan Validator
+# Usage: echo "$PLAN_CONTENT" | ./test-first-check.sh
+
+set -euo pipefail
+
+PLAN_CONTENT=$(cat)
+
+HAS_TEST_SECTION=false
+HAS_TEST_FILES=false
+TESTS_BEFORE_IMPL=false
+TEST_FILE_COUNT=0
+IMPL_FILE_COUNT=0
+FIRST_TEST_LINE=999999
+FIRST_IMPL_LINE=999999
+ISSUES=()
+
+LINE_NUM=0
+
+while IFS= read -r line; do
+    ((LINE_NUM++)) || true
+
+    # Test section headers
+    if echo "$line" | grep -qiE "^#+\s*(test|tests)"; then
+        HAS_TEST_SECTION=true
+    fi
+
+    # Test file patterns
+    if echo "$line" | grep -qiE "(test_[a-z_]+\.py|[a-z_]+_test\.py|\.test\.(ts|tsx|js|jsx)|\.spec\.(ts|tsx|js|jsx)|tests/[a-z_]+\.py|__tests__/)"; then
+        HAS_TEST_FILES=true
+        ((TEST_FILE_COUNT++)) || true
+        if [[ $LINE_NUM -lt $FIRST_TEST_LINE ]]; then
+            FIRST_TEST_LINE=$LINE_NUM
+        fi
+    fi
+
+    # Implementation file patterns (non-test)
+    if echo "$line" | grep -qiE "(src/|app/|components/|lib/|services/|api/|models/|utils/|helpers/)[a-z0-9_/-]+\.(py|ts|tsx|js|jsx)" && \
+       ! echo "$line" | grep -qiE "(test_|_test\.|\.test\.|\.spec\.)"; then
+        ((IMPL_FILE_COUNT++)) || true
+        if [[ $LINE_NUM -lt $FIRST_IMPL_LINE ]]; then
+            FIRST_IMPL_LINE=$LINE_NUM
+        fi
+    fi
+
+done <<< "$PLAN_CONTENT"
+
+# Order check
+if [[ $FIRST_TEST_LINE -lt $FIRST_IMPL_LINE ]]; then
+    TESTS_BEFORE_IMPL=true
+fi
+
+# Build issues
+if [[ "$HAS_TEST_SECTION" == false ]]; then
+    ISSUES+=("No test section found (expected '## Tests' or '## Test Files')")
+fi
+
+if [[ "$HAS_TEST_FILES" == false ]]; then
+    ISSUES+=("No test files listed (expected *_test.py, *.test.ts, etc.)")
+fi
+
+if [[ "$HAS_TEST_FILES" == true && "$TESTS_BEFORE_IMPL" == false && $IMPL_FILE_COUNT -gt 0 ]]; then
+    ISSUES+=("Tests should be listed BEFORE implementation files")
+fi
+
+# Coverage ratio warning
+if [[ $TEST_FILE_COUNT -gt 0 && $IMPL_FILE_COUNT -gt 0 ]]; then
+    RATIO=$(echo "scale=2; $TEST_FILE_COUNT / $IMPL_FILE_COUNT" | bc)
+    if (( $(echo "$RATIO < 0.5" | bc -l) )); then
+        ISSUES+=("Low coverage: $TEST_FILE_COUNT test files for $IMPL_FILE_COUNT impl files")
+    fi
+fi
+
+# Pass/fail
+PASSED=true
+if [[ "$HAS_TEST_FILES" == false ]]; then
+    PASSED=false
+fi
+
+# Output JSON
+ISSUES_JSON="[]"
+if [[ ${#ISSUES[@]} -gt 0 ]]; then
+    ISSUES_JSON=$(printf '%s\n' "${ISSUES[@]}" | jq -R . | jq -s .)
+fi
+
+cat << EOF
+{
+  "passed": $PASSED,
+  "hasTestSection": $HAS_TEST_SECTION,
+  "hasTestFiles": $HAS_TEST_FILES,
+  "testsBeforeImpl": $TESTS_BEFORE_IMPL,
+  "testFileCount": $TEST_FILE_COUNT,
+  "implFileCount": $IMPL_FILE_COUNT,
+  "issues": $ISSUES_JSON
+}
+EOF
+```
+
+## What a Valid Plan Looks Like
+
+The hook forces plans to follow this structure:
+
+```markdown
+## User Story
+As a user, I want to see collection creators...
+
+## Acceptance Criteria
+- Creator name appears below title
+- Links to profile
+- Shows "Anonymous" if no creator
+
+## Test Files
+
+### Backend (pytest)
+- tests/api/v1/test_collections.py
+
+### Frontend (vitest)
+- src/components/__tests__/CollectionHeader.test.tsx
+- src/hooks/__tests__/useCreator.test.ts
+
+## Implementation Files
+
+### Backend
+- src/app/api/v1/endpoints/collections.py
+
+### Frontend
+- src/components/CollectionHeader.tsx
+- src/hooks/useCreator.ts
+```
+
+Tests first. Implementation second. No exceptions.
+
+## How It Blocks
+
+When the check fails, the main hook outputs to stderr and exits with code 2:
+
+```
+TEST-FIRST VIOLATION - Plan Rejected
+
+Issues:
+- No test section found (expected '## Tests' or '## Test Files')
+- No test files listed (expected *_test.py, *.test.ts, etc.)
+
+Fix: Add test files BEFORE implementation files in your plan.
+```
+
+Claude sees this and has to revise the plan before proceeding.
+
+## Results
+
+From my debug logs, here's what a revision cycle looks like:
+
+```
+[16:25:02] Test check result: passed: false, testFileCount: 0
+[16:25:02] BLOCKING: Test-first check failed
+[16:26:15] Test check result: passed: true, testFileCount: 5, implFileCount: 2
+[16:26:15] Test-first check PASSED - starting LLM critique
+```
+
+First attempt: no tests, blocked. Second attempt: 5 test files, proceeds to critique.
+
+## Limitations
+
+- Doesn't verify test content is meaningful (just that files are listed)
+- Pattern matching is regex-based, could miss unusual conventions
+- Doesn't check that test files actually get created during implementation
+
+The [vibecheck](/posts/ai-coding-workflow) at the end catches some of these, but it's not perfect.
+
+## Related
+
+- [My AI coding workflow](/posts/ai-coding-workflow) — The full system
+- [Multi-LLM plan critique](/posts/multi-llm-plan-critique) — What happens after test-first passes
+
+---
+
+The script is ~80 lines of bash. Could be cleaner but it does the job.

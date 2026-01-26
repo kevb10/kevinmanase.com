@@ -1,0 +1,133 @@
+---
+title: "How I Actually Code with AI (It's Not Just Prompting)"
+description: "My workflow for coding with Claude, Gemini, and Codex — user stories, multi-LLM plan critique, test-first enforcement, and staying on course."
+date: "2026-01-26"
+tags: ["ai", "workflow", "claude-code", "engineering"]
+published: true
+---
+
+I've been coding with AI for a while now and honestly, the "just prompt it" approach doesn't work for anything serious. You end up with code that kinda works but drifts from what you actually wanted. Or worse, it works but you can't explain why.
+
+So I built a workflow. It's not complicated but it keeps me honest — and keeps the AI honest too.
+
+![coding with ai vibes](https://media.giphy.com/media/vzO0Vc8b2VBLi/giphy.gif)
+
+## The Problem
+
+When you're coding with an LLM, the failure modes are subtle:
+
+- **Drift** — You ask for X, you get X plus a bunch of "improvements" you didn't ask for
+- **Overconfidence** — The model commits to an approach without considering alternatives
+- **No accountability** — There's no record of what you agreed to build vs what got built
+- **Blind spots** — One model might miss something obvious that another would catch
+
+I wanted a system that catches these before I'm 500 lines deep into the wrong solution.
+
+## The Workflow
+
+<Mermaid chart={`
+flowchart TD
+    A[User Story] --> B[Acceptance Criteria]
+    B --> C[Plan with Tests First]
+    C --> D{ExitPlanMode}
+    D --> E[Test-First Check]
+    E -->|Fail| C
+    E -->|Pass| F[Gemini 3 Critique]
+    F --> G[Codex Reviews Gemini]
+    G --> H[Claude Sees Combined Feedback]
+    H --> I[Revise Plan if Needed]
+    I --> J[Implement]
+    J --> K[/vibecheck]
+    K -->|Pass| L[Commit]
+    K -->|Fail| J
+`} />
+
+Let me break this down.
+
+### 1. Start with a User Story
+
+Not because I'm doing capital-A Agile, but because it forces me to articulate what I actually want before touching code. Something like:
+
+> As a user viewing a collection, I want to see who created it so I can understand its context.
+
+Simple. One sentence. If I can't write this, I don't understand the feature yet.
+
+### 2. Acceptance Criteria
+
+What does "done" look like? I write these before any planning:
+
+- Creator name appears below collection title
+- Links to creator's profile
+- Shows "Anonymous" if no creator set
+- Works on mobile
+
+These become the checklist at the end.
+
+### 3. Plan with Tests First
+
+Here's where it gets interesting. When Claude creates a plan, I've set up a [hook that enforces test-first development](/posts/test-first-enforcement). The plan literally cannot proceed unless it lists test files before implementation files.
+
+This matters because:
+- Tests document expected behavior
+- Forces thinking about edge cases early
+- Creates accountability for what we're building
+
+### 4. Multi-LLM Critique
+
+When I approve a plan in Claude Code, a [PostToolUse hook](/posts/multi-llm-plan-critique) fires. It:
+
+1. Checks the plan has tests (blocks if not)
+2. Sends the plan to **Gemini 3 Flash** for architectural critique
+3. Sends both the plan AND Gemini's critique to **Codex** for a second opinion
+4. Returns everything to Claude
+
+Why multiple models? They have different blind spots. Gemini might catch an architectural issue, Codex might notice a missing edge case. I've seen them disagree — that's valuable signal.
+
+### 5. Implement
+
+Now Claude implements with full context:
+- The original user story
+- Acceptance criteria
+- A critique-hardened plan
+- Test files to write first
+
+### 6. Vibecheck
+
+This is the final gate. After implementation, I run `/vibecheck` which:
+- Rereads the original plan
+- Looks at what files changed
+- Checks: did we stay on course?
+
+If we drifted, it flags it. No silent scope creep.
+
+## Why This Works
+
+The key insight is that **AI coding isn't about prompting, it's about constraints**.
+
+You need:
+- **Explicit goals** (user stories, acceptance criteria)
+- **Enforceable standards** (test-first hooks)
+- **Multiple perspectives** (multi-LLM critique)
+- **Verification** (vibecheck)
+
+Without these, you're just hoping the AI does what you want.
+
+## The Tools
+
+- **Claude Code** (Opus 4.5) — Primary coding assistant
+- **OpenCode + Gemini 3** — Architectural critique via OpenRouter
+- **Codex CLI** — Second opinion on plans
+- **Claude Code Hooks** — The glue that enforces all this
+
+## What's Next
+
+I'm writing deeper dives on each piece:
+- [Multi-LLM Plan Critique](/posts/multi-llm-plan-critique) — The hook system in detail
+- [Test-First Enforcement](/posts/test-first-enforcement) — How to block plans without tests
+- Vibecheck (coming soon) — Staying on course
+
+This workflow isn't perfect and I'm still iterating. But it's way better than "just prompt it and pray."
+
+---
+
+*If you're building something similar or have ideas, I'm [@kevinmanase](https://twitter.com/kevinmanase) on Twitter.*

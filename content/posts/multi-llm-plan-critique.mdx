@@ -1,0 +1,245 @@
+---
+title: "Building a Multi-LLM Plan Critique System for Claude Code"
+description: "How I built a hook that sends plans through Gemini and Codex before letting Claude implement anything."
+date: "2026-01-26"
+tags: ["claude-code", "hooks", "gemini", "codex", "engineering"]
+published: true
+---
+
+This is a deep dive into the plan critique system I mentioned in [my AI coding workflow post](/posts/ai-coding-workflow). It's a Claude Code hook that blocks implementation until multiple LLMs have reviewed the plan.
+
+![planning vibes](https://media.giphy.com/media/3o7btPCcdNniyf0ArS/giphy.gif)
+
+## The Goal
+
+When Claude creates an implementation plan, I want:
+
+1. **Test-first enforcement** — Block if no test files listed
+2. **Gemini 3 Flash critique** — Architectural review, coverage gaps
+3. **Codex second opinion** — What did Gemini miss?
+4. **All feedback visible to Claude** before implementation starts
+
+## How Claude Code Hooks Work
+
+Hooks are commands that run at specific points in Claude's workflow. The one I care about is `PostToolUse` — runs after a tool completes.
+
+In `~/.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "ExitPlanMode",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/critique-plan.sh",
+            "timeout": 600
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+This triggers my script whenever Claude exits plan mode (i.e., the plan is ready for approval).
+
+## The Architecture
+
+<Mermaid chart={`
+flowchart TD
+    A[User approves plan] --> B[PostToolUse:ExitPlanMode fires]
+    B --> C[critique-plan.sh starts]
+    C --> D{Test-First Check}
+    D -->|Fail| E[Exit 2 + stderr]
+    E --> F[Claude sees block message]
+    D -->|Pass| G[Call Gemini 3 Flash]
+    G --> H[Gemini critiques plan]
+    H --> I[Call Codex with plan + Gemini's critique]
+    I --> J[Codex adds missed points]
+    J --> K[Return combined critique to Claude]
+    K --> L[Claude revises plan or proceeds]
+`} />
+
+## The Hard Parts
+
+### Problem 1: Blocking Doesn't Work with JSON
+
+My first attempt returned:
+
+```json
+{
+  "decision": "block",
+  "reason": "TEST-FIRST VIOLATION: Plan rejected..."
+}
+```
+
+Claude Code said "hook succeeded" and kept going. The `decision: block` was ignored.
+
+**Fix:** Use exit code 2 + stderr instead:
+
+```bash
+# This gets ignored
+cat << EOF
+{"decision": "block", "reason": "..."}
+EOF
+exit 0
+
+# This actually blocks
+cat >&2 << EOF
+TEST-FIRST VIOLATION - Plan Rejected
+...
+EOF
+exit 2
+```
+
+Exit code 2 signals "hook blocked this action" and stderr content becomes the message Claude sees.
+
+### Problem 2: Background Processes Are Useless
+
+I tried running the LLM critiques in the background:
+
+```bash
+( ... gemini ... codex ... ) &
+```
+
+Hook returned immediately. Critique ran in the background. Claude never saw it because the hook was already done.
+
+**Fix:** Make it synchronous. Yes, it takes 20-30 seconds. Worth it.
+
+```bash
+# Blocking - Claude waits and sees the result
+GEMINI_RESULT=$(opencode run -m "openrouter/google/gemini-3-flash-preview" "$PROMPT")
+CODEX_RESULT=$(codex exec --full-auto "$PROMPT")
+```
+
+### Problem 3: Plan Freshness
+
+The hook reads the most recent plan file from `~/.claude/plans/`. But if the user takes too long reviewing, the plan gets "stale" and the hook silently exits:
+
+```
+Plan age: 288s (max 120s)
+EXIT: Plan too old
+```
+
+Claude sees "hook succeeded" and proceeds.
+
+**Partial fix:** Increased timeout to 600s. Better fix would be reading from `tool_response.plan` in the hook input instead of relying on file timestamps.
+
+## The Code
+
+Here's the main hook script. It's messy but it works.
+
+```bash
+#!/bin/bash
+set -euo pipefail
+
+DEBUG_LOG="$HOME/.claude/logs/critique-hook.log"
+mkdir -p "$(dirname "$DEBUG_LOG")"
+
+log_debug() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$DEBUG_LOG"
+}
+
+# Find most recent plan file
+PLAN_FILE=$(ls -t ~/.claude/plans/*.md 2>/dev/null | head -1)
+
+if [[ ! -f "$PLAN_FILE" ]]; then
+    exit 0  # No plan, nothing to do
+fi
+
+# Freshness check
+PLAN_AGE=$(($(date +%s) - $(stat -f %m "$PLAN_FILE")))
+if [[ $PLAN_AGE -gt 600 ]]; then
+    exit 0  # Too old, skip
+fi
+
+PLAN_CONTENT=$(cat "$PLAN_FILE")
+
+# Test-first check (separate script)
+TEST_CHECK=$(echo "$PLAN_CONTENT" | ~/.claude/hooks/test-first-check.sh)
+TEST_PASSED=$(echo "$TEST_CHECK" | jq -r '.passed')
+
+if [[ "$TEST_PASSED" == "false" ]]; then
+    ISSUES=$(echo "$TEST_CHECK" | jq -r '.issues | join("\n- ")')
+    cat >&2 << EOF
+TEST-FIRST VIOLATION - Plan Rejected
+
+Issues:
+- $ISSUES
+
+Fix: Add test files BEFORE implementation files in your plan.
+EOF
+    exit 2
+fi
+
+# Gemini critique
+GEMINI_PROMPT="You are a senior architect reviewing an implementation plan...
+$PLAN_CONTENT"
+
+GEMINI_RESULT=$(opencode run -m "openrouter/google/gemini-3-flash-preview" "$GEMINI_PROMPT" 2>/dev/null || echo "[unavailable]")
+
+# Codex reviews Gemini's critique
+CODEX_PROMPT="Review this plan AND Gemini's critique. What did Gemini miss?
+---
+PLAN:
+$PLAN_CONTENT
+---
+GEMINI'S CRITIQUE:
+$GEMINI_RESULT"
+
+CODEX_RESULT=$(codex exec --full-auto "$CODEX_PROMPT" 2>/dev/null || echo "[unavailable]")
+
+# Return to Claude
+FULL_CRITIQUE="PLAN CRITIQUE FROM GEMINI + CODEX
+
+## Gemini 3 Flash
+$GEMINI_RESULT
+
+## Codex
+$CODEX_RESULT"
+
+jq -n --arg ctx "$FULL_CRITIQUE" '{
+  "hookSpecificOutput": {
+    "hookEventName": "PostToolUse",
+    "additionalContext": $ctx
+  }
+}'
+```
+
+## What the Critiques Look Like
+
+Here's an actual critique from a recent plan:
+
+**Gemini:**
+> **Test Coverage (PRIMARY CRITIQUE - INSUFFICIENT)**
+> While the plan includes `collection-viewer.test.ts`, it has significant gaps:
+> - Missing Add Page Tests: You modify `src/app/collection/[id]/add/page.tsx` but provide no corresponding test file.
+> - Null Safety: `currentAndeeTag` can now be `null`. Tests must verify sub-components don't crash.
+
+**Codex:**
+> - Missed test scenario: `?viewer=` present but `useCurrentAndee` reports authenticated; ensure viewer override wins
+> - Test quality issue: `page.test.tsx` uses `vi.mock` inside tests; this won't rewire imports after module is loaded
+
+They catch different things. That's the point.
+
+## What's Missing
+
+Things I'd improve:
+
+1. **Read plan from hook input** instead of filesystem (avoids staleness issues)
+2. **Add confidence weights** — if both models agree on an issue, flag it higher
+3. **Auto-apply suggestions** — generate a diff for test files mentioned in critiques
+4. **More models** — GPT-4o, Claude itself reviewing its own plan
+
+## Related
+
+- [My overall AI coding workflow](/posts/ai-coding-workflow)
+- [Test-first enforcement](/posts/test-first-enforcement) — the validator script
+- The test-first-check.sh script details (coming soon)
+
+---
+
+The hook code lives in my dotfiles. Still iterating on it.
