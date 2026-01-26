@@ -6,6 +6,7 @@
 - [x] **AI Coding Workflow Overview** — `/posts/ai-coding-workflow` — The full system, hub for deep dives
 - [x] **Multi-LLM Plan Critique** — `/posts/multi-llm-plan-critique` — Gemini + Codex hook system
 - [x] **Test-First Enforcement** — `/posts/test-first-enforcement` — Bash validator, blocking plans without tests
+- [x] **CBC Acceptance Criteria** — `/posts/cbc-acceptance-criteria` — Context-Behavior-Constraint format for testable AC
 
 ## In Progress
 
@@ -15,7 +16,6 @@
 
 ### AI Coding Series
 - [ ] **User Stories for AI** — How I write user stories that work well with LLMs
-- [ ] **CBC: Acceptance Criteria That Map to Tests** — Context-Behavior-Constraint format, why Gherkin/prose fail
 - [ ] **When AI Drifts** — War stories of scope creep and how I caught it
 - [ ] **Debugging the Hook System** — The journey from JSON responses to exit codes
 - [ ] **Why Multiple Models** — When Gemini and Codex disagree, who's right?

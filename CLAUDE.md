@@ -32,7 +32,7 @@ Posts should backlink to each other. Overview is the hub.
 
 ## Kevin's Dev Workflow (context for content)
 ```
-User story → Acceptance criteria (CBC format) → Plan (test files first)
+User story → Acceptance criteria → Plan (test files first)
 → ExitPlanMode triggers hook
 → Gemini 3 Flash critiques
 → Codex reviews Gemini's critique, adds missed points
@@ -43,44 +43,6 @@ User story → Acceptance criteria (CBC format) → Plan (test files first)
 ```
 
 Key tools: Claude Code (Opus), OpenCode (Gemini via OpenRouter), Codex CLI
-
-## Acceptance Criteria Format: CBC (Context-Behavior-Constraint)
-
-Kevin uses a structured AC format that maps directly to test code:
-
-```markdown
-**context**
-- actor: who/what triggers this behavior
-- preconditions: state that must exist before (test fixtures)
-- inputs: function arguments or request parameters
-
-**behavior**
-- when: the trigger action (function call)
-- then: primary expected outcome
-- and: additional outcomes (each becomes an assertion)
-
-**constraints**
-- edge case: boundary condition → expected handling
-- non-goal: explicitly out of scope for this story
-```
-
-### Field → Test Mapping
-| Field | Test Code |
-|-------|-----------|
-| actor | Test class/context |
-| preconditions | setUp(), fixtures, mocks |
-| inputs | Function arguments |
-| when | Function call |
-| then | Primary assert |
-| and | Additional asserts |
-| edge case | Separate test methods |
-| non-goal | What NOT to test |
-
-### Why CBC over alternatives
-- **Gherkin**: Too verbose, no edge case section
-- **Prose**: Hard to parse, buries details
-- **Tables**: Loses context, can't express complex assertions
-- **Checklists**: No structure, can't distinguish preconditions from outcomes
 
 ## Commands
 ```bash

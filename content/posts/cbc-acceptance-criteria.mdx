@@ -1,0 +1,260 @@
+---
+title: "Context-Behavior-Constraint: Acceptance Criteria That Actually Work"
+description: "A format for writing acceptance criteria that maps directly to tests. Inspired by Gherkin, but less verbose and more LLM-friendly."
+date: "2026-01-26"
+tags: ["testing", "engineering", "ai", "workflow"]
+published: true
+---
+
+A colleague introduced me to Gherkin (Given/When/Then) and I liked the idea but hated the execution. Too verbose. No place for edge cases. Mixes setup with inputs.
+
+So I made my own format. I call it **Context-Behavior-Constraint (CBC)**.
+
+![testing structure](https://media.giphy.com/media/3o7btNa0RUYa5E7iiQ/giphy.gif)
+
+## The Problem with Common Formats
+
+| Format | What's Wrong |
+|--------|--------------|
+| Prose | Ambiguous, buries edge cases, hard for LLMs to parse |
+| Gherkin | Verbose, no constraint section, "should" language |
+| Checklists | No structure, can't tell setup from outcome |
+| User stories | "As a... I want..." is motivation, not behavior |
+
+The insight: tests have a natural structure — **Arrange-Act-Assert**. Acceptance criteria should mirror that.
+
+<Mermaid chart={`
+flowchart LR
+    subgraph AC["Acceptance Criteria"]
+        A[Context] --> B[Behavior] --> C[Constraints]
+    end
+    subgraph Test["Test Code"]
+        D[Arrange] --> E[Act] --> F[Assert]
+    end
+    A -.-> D
+    B -.-> E
+    C -.-> F
+`} />
+
+## The Format
+
+```markdown
+**context**
+- actor: who/what triggers this behavior
+- preconditions: state that must exist before (test fixtures)
+- inputs: function arguments or request parameters
+
+**behavior**
+- when: the trigger action (function call)
+- then: primary expected outcome
+- and: additional outcomes (each becomes an assertion)
+
+**constraints**
+- edge case: boundary condition → expected handling
+- non-goal: explicitly out of scope for this story
+```
+
+That's it. Every field maps directly to test code.
+
+## Field → Test Code Mapping
+
+| Field | Purpose | Test Code |
+|-------|---------|-----------|
+| `actor` | Who performs the action | Test class name |
+| `preconditions` | State before test | `setUp()`, fixtures |
+| `inputs` | Values passed in | Function arguments |
+| `when` | The action | Function call |
+| `then` | Primary assertion | `assert` |
+| `and` | Additional assertions | More `assert`s |
+| `edge case` | Boundary conditions | Separate test methods |
+| `non-goal` | Scope boundaries | What NOT to test |
+
+## Real Example
+
+Here's an actual AC from a blend scoring feature:
+
+```markdown
+### 1. Direct Signal Match
+
+**context**
+- actor: blend service
+- preconditions: dan has SIGNALS edge to franklins with strength 90
+- inputs: collection_id="austin_bbq", andee_id="dan"
+
+**behavior**
+- when: blend_collection(collection_id, andee_id)
+- then: franklins.score = 90
+- and: franklins.score_breakdown.direct_signal = 90
+- and: franklins.reasons includes "You love this (90)"
+
+**constraints**
+- edge case: direct signal is negative → item ranks lowest
+- non-goal: blending items dan created (always show those)
+```
+
+And the test it generates:
+
+```python
+class TestBlendDirectSignalMatch:
+    """AC 1: Direct Signal Match"""
+
+    @pytest.fixture
+    def setup_dan_signals(self, neo4j_service):
+        """preconditions: dan has SIGNALS edge to franklins"""
+        neo4j_service.create_signals_edge(
+            andee_id="dan",
+            content_id="franklins",
+            strength=90
+        )
+
+    def test_direct_signal_match(self, setup_dan_signals, blend_service):
+        """when: blend_collection → then: franklins.score = 90"""
+        # inputs
+        collection_id = "austin_bbq"
+        andee_id = "dan"
+
+        # when
+        result = blend_service.blend_collection(collection_id, andee_id)
+
+        # then
+        assert result["franklins"].score == 90
+
+        # and
+        assert result["franklins"].score_breakdown.direct_signal == 90
+        assert "You love this (90)" in result["franklins"].reasons
+
+    def test_negative_signal_ranks_lowest(self, neo4j_service, blend_service):
+        """edge case: direct signal is negative → item ranks lowest"""
+        neo4j_service.create_signals_edge("dan", "bad_place", strength=-80)
+
+        result = blend_service.blend_collection("austin_bbq", "dan")
+
+        assert result["bad_place"].score == min(r.score for r in result.values())
+```
+
+Notice how the test basically writes itself. Each AC field has a home in the test.
+
+## Why Constraints Matter
+
+The `constraints` section is the secret weapon. It captures two things:
+
+**Edge cases** — boundary conditions that need their own tests. Without this, edge cases get buried in prose or forgotten entirely.
+
+**Non-goals** — what's explicitly out of scope. This prevents scope creep. When someone asks "should we also handle X?" you can point to the non-goal and say "not in this story."
+
+## Why This Works for AI Coding
+
+When I'm [coding with Claude](/posts/ai-coding-workflow), the CBC format makes AC trivially parseable:
+
+```python
+context = parse_section("context")
+preconditions = context["preconditions"]  # Direct access
+```
+
+With prose, Claude has to infer: "Before the test runs, we need to... which means..."
+
+Inference = drift. Explicit labels = precision.
+
+This ties into my [test-first enforcement](/posts/test-first-enforcement) — plans must include test files, and CBC makes those tests obvious to generate.
+
+## Why Not Gherkin?
+
+I tried Gherkin. Here's the same behavior:
+
+```gherkin
+Given dan has a SIGNALS edge to franklins with strength 90
+And the collection "austin_bbq" contains franklins
+When I call blend_collection with collection_id="austin_bbq" and andee_id="dan"
+Then franklins.score should be 90
+And franklins.score_breakdown.direct_signal should be 90
+And franklins.reasons should include "You love this (90)"
+```
+
+Problems:
+- Every line needs Given/When/Then prefix (verbose)
+- No separation between preconditions and inputs
+- No edge case section
+- "should be" is ambiguous (MUST vs SHOULD?)
+- Where do non-goals go?
+
+Gherkin is fine for documentation. It's not great for test generation.
+
+## Template
+
+Here's what I use for stories:
+
+```markdown
+# X.Y Story Title
+
+> **Priority:** P0/P1/P2
+
+## Story
+
+As [actor], I [action] so that [outcome].
+
+## Why
+
+| Without This | With This |
+|--------------|-----------|
+| Problem 1 | Solution 1 |
+
+---
+
+## Acceptance Criteria
+
+### 1. First Behavior
+
+**context**
+- actor: ...
+- preconditions: ...
+- inputs: ...
+
+**behavior**
+- when: ...
+- then: ...
+- and: ...
+
+**constraints**
+- edge case: ...
+- non-goal: ...
+
+---
+
+### 2. Second Behavior
+
+(repeat)
+
+---
+
+## Definition of Done
+
+- [ ] Tests cover all acceptance criteria
+- [ ] Edge cases have dedicated tests
+```
+
+## When to Use This
+
+**Use CBC for:**
+- User stories that need tests
+- Bug reports with reproduction steps
+- Any behavior spec an LLM will implement
+
+**Don't use CBC for:**
+- Design exploration (use prose)
+- API docs (use OpenAPI)
+- Architecture decisions (use ADRs)
+
+## The Tradeoff
+
+CBC is more rigid than prose. Simple stories still need the full structure. But the payoff is:
+
+- Claude can generate tests directly from AC
+- Reviewers can scan quickly (labels as anchors)
+- Edge cases are explicit, not buried
+- Non-goals prevent "while we're at it..." creep
+
+For my [AI coding workflow](/posts/ai-coding-workflow), that tradeoff is worth it every time.
+
+---
+
+*Thanks to a colleague who introduced me to Gherkin. The frustration led to something better.*
