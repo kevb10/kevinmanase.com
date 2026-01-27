@@ -6,17 +6,19 @@ tags: ["testing", "claude-code", "hooks", "tdd"]
 published: true
 ---
 
-part of [my ai coding workflow](/posts/ai-coding-workflow). this is the script that validates plans have tests before implementation files.
+part of [my ai coding workflow](/posts/ai-coding-workflow).
 
 ![testing gif](https://media.giphy.com/media/gw3IWyGkC0rsazTi/giphy.gif)
 
 ## the problem
 
-ai coding assistants will happily generate implementation without tests. ask for a feature, you get the feature. maybe tests later. maybe never.
+i'd ask for one feature. get the feature plus three more. "oh that's not bad, i actually need that." a week later: spaghetti code no one wants to touch.
 
-this leads to:
-- code that works until it doesn't
-- features that drift from spec
+the problem wasn't the ai. i never forced it to think about tests first.
+
+without that constraint:
+- code works until it doesn't
+- features drift from spec
 - no documentation of expected behavior
 - regressions when you touch adjacent code
 

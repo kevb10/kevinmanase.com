@@ -6,7 +6,9 @@ tags: ["claude-code", "hooks", "gemini", "codex", "engineering"]
 published: true
 ---
 
-this is a deep dive into the plan critique system i mentioned in [my ai coding workflow post](/posts/ai-coding-workflow). it's a claude code hook that blocks implementation until multiple llms have reviewed the plan.
+one model has blind spots. always. i've watched gemini catch architectural issues codex missed, and codex catch edge cases gemini glossed over. when they disagree, that's signal.
+
+this is a deep dive into how i built a claude code hook that sends plans through multiple llms before implementation starts.
 
 ![planning vibes](https://media.giphy.com/media/3o7btPCcdNniyf0ArS/giphy.gif)
 
