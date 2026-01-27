@@ -34,6 +34,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
+    site: "@kevinmanase",
+    creator: "@kevinmanase",
     title: "Kevin Manase",
     description: "Engineering thoughts, system design, and notes on building software.",
   },

@@ -8,6 +8,7 @@
 - [x] **Test-First Enforcement** — `/posts/test-first-enforcement` — Bash validator, blocking plans without tests
 - [x] **CBC Acceptance Criteria** — `/posts/cbc-acceptance-criteria` — Context-Behavior-Constraint format for testable AC
 - [x] **Vibecheck** — `/posts/vibecheck` — Auditing implementation against the plan
+- [x] **Handoff** — `/posts/handoff` — Deliberate context reset before compaction
 
 ## In Progress
 

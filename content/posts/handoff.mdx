@@ -1,0 +1,240 @@
+---
+title: "Handoff: The Deliberate Context Reset"
+description: "When your context window is filling up, it's already too late. The handoff command creates a compass for the next session before you hit the wall."
+date: "2026-01-27"
+tags: ["claude-code", "workflow", "context-management", "slash-commands"]
+published: true
+---
+
+Part of [my AI coding workflow](/posts/ai-coding-workflow). This is how I manage context across sessions without losing momentum.
+
+![passing the baton](https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExdWI2cm84bXg0MDMxdGVvM28wOHkyYjlsbXowam5xN2gzcHV5MnV5ciZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/glqdZPHSpcMNTbhCxs/giphy.gif)
+
+## Context Is King
+
+Everything an AI assistant does well, it does because of context. The CLAUDE.md file, the conversation history, the files it's read, the errors it's seen - all of it compounds into understanding.
+
+A fresh Claude session knows nothing about your project. It's starting from scratch. But a Claude session 50k tokens deep knows:
+
+- Your architectural decisions
+- The bugs you've already fixed
+- The patterns you prefer
+- Why that weird function exists
+- What you tried that didn't work
+
+That context is gold. It's the difference between "let me read through everything to understand" and "I know exactly where this goes."
+
+## The Problem: Context Pollution
+
+But context isn't free. Every message adds tokens. Every file read, every error, every "let me try that again" - it all accumulates.
+
+And here's the thing: **polluted context is worse than no context.**
+
+When your session is full of:
+- Failed approaches that led nowhere
+- Long stack traces from early debugging
+- Files you read but didn't need
+- Tangent conversations about things you decided not to do
+
+...Claude has to wade through all of it to find what matters. The signal-to-noise ratio tanks.
+
+At 90k tokens, you notice it. Responses get slower. Claude starts referencing things you fixed hours ago. It forgets the current direction.
+
+## The Compaction Trap
+
+Claude Code has automatic compaction - it summarizes older context when you're running out of room. Sounds great in theory.
+
+But by the time compaction kicks in, you've already lost. The summarization is lossy. Nuance disappears. That subtle reason you didn't use Redis? Gone. The edge case in the Cypher query? Compressed away.
+
+The conversation *feels* continuous but the understanding has holes.
+
+Worse: you don't notice until you hit a wall. "Wait, we already discussed this" becomes "why doesn't it remember?"
+
+## The Solution: Deliberate Handoff
+
+Instead of letting context degrade, I create a deliberate checkpoint. The `/handoff` command generates a `HANDOFF.md` file - a compass for the next fresh session.
+
+It's not a transcript. It's not a summary. It's **actionable context** - exactly what the next session needs to continue the work.
+
+<Mermaid chart={`
+flowchart LR
+    A["Session 1<br/>(90k tokens)"] --> B["/handoff"]
+    B --> C["HANDOFF.md"]
+    C --> D["/clear"]
+    D --> E["Fresh Session<br/>(0 tokens)"]
+    E --> F["Read HANDOFF.md"]
+    F --> G["Continue work"]
+`} />
+
+The key insight: **start a fresh session with perfect context, instead of continuing a degraded one.**
+
+## What's in a Handoff
+
+The structure is designed for quick parsing:
+
+```markdown
+# Handoff: Client Lookup Enhancement
+
+> **Date:** 2026-01-27
+> **Session:** Implemented 3.17 Client Query → Add `region` + `notes` fields
+
+---
+
+## Context
+Dunder Mifflin Infinity backend.
+Implementing regional client lookup to replace keyword-based search.
+
+---
+
+## Just Completed
+- Implemented `get_regional_clients()` query method with filters
+- Added `region_code` parameter to `create_client_record()`
+- Fixed SQL syntax and datetime conversion
+- **29 tests pass**
+
+### Key Files Changed
+| File | Purpose |
+|------|---------|
+| `src/app/models/client.py` | NEW - `ClientResult` model |
+| `src/app/services/sales.py` | Added `region_code` param |
+
+---
+
+## Next Up
+**Add `region` and `notes` fields to Client record**
+
+### Starting Point
+1. Update DATABASE_SCHEMA.md
+2. Update `src/app/services/sales.py:160`
+3. Add tests
+
+---
+
+## Gotchas
+1. **SQL ON CONFLICT** must come immediately after INSERT
+2. **DateTime** needs conversion: `dt.isoformat()`
+
+---
+
+## Quick Commands
+\`\`\`bash
+uv run pytest tests/services/test_sales.py -v
+\`\`\`
+
+---
+
+## References
+- [Story 3.17](link) - Client query (DONE)
+- [Story 5.5](link) - Regional lookup + filtering
+```
+
+## Why This Works
+
+### 1. Just Completed
+
+Not everything you did - just what matters for continuity. The next session doesn't need to know about the 4 approaches you tried that failed. It needs to know what succeeded.
+
+### 2. Key Files Changed
+
+A table, not prose. The next session can immediately read these files and have the context it needs.
+
+### 3. Next Up
+
+The specific task to continue. Not "keep working on the feature" - the exact next step. "Add `reason` and `raw_text` fields to SIGNALS edge."
+
+### 4. Starting Point
+
+Line numbers, file paths, exact commands. Eliminates the "where was I?" phase.
+
+### 5. Gotchas
+
+This is the secret sauce. Every session discovers things: syntax quirks, API behaviors, debugging tricks. Without this section, the next session rediscovers them.
+
+"Cypher ON CREATE SET must come immediately after MERGE" - this took 20 minutes to figure out. The next session gets it in one line.
+
+### 6. Quick Commands
+
+Copy-paste ready. No "how do I run the tests again?"
+
+## When to Handoff
+
+I use `/handoff` when:
+
+- **I'm at 60-70k tokens** - well before automatic compaction
+- **I'm switching tasks** - different feature, different mental model
+- **I'm ending for the day** - tomorrow is a fresh session anyway
+- **The conversation got messy** - lots of backtracking, dead ends, tangents
+
+The goal is to handoff while you still have good context, not after it's degraded.
+
+## The Command
+
+It lives at `.claude/commands/handoff.md`:
+
+```markdown
+# Handoff
+
+Generate a concise handoff document for the next Claude session.
+
+## Instructions
+
+Create or update `HANDOFF.md` at the repo root with a brief compass:
+
+1. **Gather context** by running:
+   - `git status` - uncommitted changes
+   - `git log --oneline -10` - recent commits
+   - Check for in-progress stories or tasks
+
+2. **Write HANDOFF.md** with these sections:
+   - Context (1-2 sentences)
+   - Just Completed (bullet list)
+   - Key Files Changed (table)
+   - Next Up (specific task)
+   - Starting Point (exact steps)
+   - Gotchas (traps to avoid)
+   - Quick Commands (copy-paste ready)
+   - References (links to docs)
+
+3. **Keep it short** - compass, not novel. ~100-150 lines max.
+
+4. **Be specific** - exact file paths, line numbers, working commands.
+
+5. **Report back** with a one-liner to start the next session.
+```
+
+The key instruction: "This is a compass, not a novel."
+
+## Starting the Next Session
+
+The handoff ends with a one-liner:
+
+```
+Read HANDOFF.md then add reason and raw_text fields to SIGNALS edge
+```
+
+Paste that into a fresh session. Claude reads the handoff, immediately has context, and starts on the exact task. No warmup, no re-explaining, no "let me understand what you're working on."
+
+The fresh session has:
+- Clean context window (no pollution)
+- Perfect starting knowledge (from HANDOFF.md)
+- Clear direction (the one-liner task)
+
+## The Mental Model
+
+Think of sessions like relay races:
+
+**Without handoff:** Each runner starts from the beginning of the track, getting more tired as they run longer distances. By the end, they're stumbling.
+
+**With handoff:** Each runner starts fresh, but exactly where the last one stopped. The baton carries the context.
+
+The context window isn't a limitation to fight against. It's a signal to work with. When it starts filling up, that's not a problem - it's a prompt to checkpoint and reset.
+
+## Related
+
+- [My AI coding workflow](/posts/ai-coding-workflow) - The full system
+- [Vibecheck](/posts/vibecheck) - Auditing implementation against the plan
+- [Multi-LLM plan critique](/posts/multi-llm-plan-critique) - Pre-implementation validation
+
+---
+
+Context is king. But a king that's exhausted and confused isn't ruling anything. Give your next session a fresh start with perfect context - that's the handoff.

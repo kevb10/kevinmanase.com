@@ -29,15 +29,22 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: post.title,
     description: post.description,
+    keywords: post.tags,
+    alternates: {
+      canonical: `/posts/${slug}`,
+    },
     openGraph: {
       title: post.title,
       description: post.description,
       type: "article",
       publishedTime: post.date,
       authors: ["Kevin Manase"],
+      tags: post.tags,
     },
     twitter: {
       card: "summary_large_image",
+      site: "@kevinmanase",
+      creator: "@kevinmanase",
       title: post.title,
       description: post.description,
     },
@@ -52,8 +59,37 @@ export default async function PostPage({ params }: Props) {
     notFound();
   }
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: post.title,
+    description: post.description,
+    author: {
+      "@type": "Person",
+      name: "Kevin Manase",
+      url: "https://kevinmanase.com/about",
+    },
+    datePublished: post.date,
+    dateModified: post.date,
+    publisher: {
+      "@type": "Person",
+      name: "Kevin Manase",
+      url: "https://kevinmanase.com",
+    },
+    mainEntityOfPage: {
+      "@type": "WebPage",
+      "@id": `https://kevinmanase.com/posts/${slug}`,
+    },
+    keywords: post.tags?.join(", "),
+  };
+
   return (
-    <article>
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <article>
       <header className="mb-10">
         <Link
           href="/"
@@ -86,5 +122,6 @@ export default async function PostPage({ params }: Props) {
         />
       </div>
     </article>
+    </>
   );
 }
