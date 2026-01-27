@@ -3,9 +3,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { Mermaid } from "./mermaid";
 import { CodeBlock } from "./code-block";
+import { ThemedImage } from "./themed-image";
 
 export const mdxComponents: MDXComponents = {
   Mermaid,
+  ThemedImage,
   h1: ({ children }) => (
     <h1 className="mt-12 mb-4 text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
       {children}

@@ -48,20 +48,11 @@ This triggers my script whenever Claude exits plan mode (i.e., the plan is ready
 
 ## The Architecture
 
-<Mermaid chart={`
-flowchart TD
-    A[User approves plan] --> B[PostToolUse:ExitPlanMode fires]
-    B --> C[critique-plan.sh starts]
-    C --> D{Test-First Check}
-    D -->|Fail| E[Exit 2 + stderr]
-    E --> F[Claude sees block message]
-    D -->|Pass| G[Call Gemini 3 Flash]
-    G --> H[Gemini critiques plan]
-    H --> I[Call Codex with plan + Gemini's critique]
-    I --> J[Codex adds missed points]
-    J --> K[Return combined critique to Claude]
-    K --> L[Claude revises plan or proceeds]
-`} />
+<ThemedImage
+  lightSrc="/diagrams/multi-llm-critique-light.png"
+  darkSrc="/diagrams/multi-llm-critique-dark.png"
+  alt="Multi-LLM plan critique workflow showing Claude, Gemini, and Codex phases"
+/>
 
 ## The Hard Parts
 
