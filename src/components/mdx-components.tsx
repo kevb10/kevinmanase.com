@@ -2,6 +2,7 @@ import type { MDXComponents } from "mdx/types";
 import Image from "next/image";
 import Link from "next/link";
 import { Mermaid } from "./mermaid";
+import { CodeBlock } from "./code-block";
 
 export const mdxComponents: MDXComponents = {
   Mermaid,
@@ -75,11 +76,7 @@ export const mdxComponents: MDXComponents = {
       </code>
     );
   },
-  pre: ({ children }) => (
-    <pre className="my-6 overflow-x-auto rounded-lg bg-zinc-950 p-4 text-sm">
-      {children}
-    </pre>
-  ),
+  pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
   img: ({ src, alt }) => {
     if (!src) return null;
 

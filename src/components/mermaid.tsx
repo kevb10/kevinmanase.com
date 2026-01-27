@@ -5,22 +5,28 @@ import mermaid from "mermaid";
 
 mermaid.initialize({
   startOnLoad: false,
+  look: "classic",
   theme: "dark",
   themeVariables: {
-    primaryColor: "#3b82f6",
+    primaryColor: "#6366f1",
     primaryTextColor: "#f4f4f5",
-    primaryBorderColor: "#52525b",
-    lineColor: "#71717a",
-    secondaryColor: "#27272a",
-    tertiaryColor: "#18181b",
+    primaryBorderColor: "#818cf8",
+    lineColor: "#a5b4fc",
+    secondaryColor: "#4f46e5",
+    tertiaryColor: "#3730a3",
     background: "#18181b",
     mainBkg: "#27272a",
-    nodeBorder: "#52525b",
-    clusterBkg: "#1f1f23",
+    nodeBorder: "#818cf8",
+    clusterBkg: "#1e1b4b",
     titleColor: "#f4f4f5",
     edgeLabelBackground: "#27272a",
   },
   fontFamily: "ui-sans-serif, system-ui, sans-serif",
+  flowchart: {
+    useMaxWidth: false,
+    htmlLabels: true,
+    padding: 15,
+  },
 });
 
 interface MermaidProps {

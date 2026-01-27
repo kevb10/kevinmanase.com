@@ -1,0 +1,279 @@
+---
+title: "Vibecheck: Auditing AI Code Against the Plan"
+description: "A slash command that verifies implementation matches the plan. Did we stay the course or drift into gold-plating?"
+date: "2026-01-27"
+tags: ["claude-code", "workflow", "discipline", "slash-commands"]
+published: true
+---
+
+Part of [my AI coding workflow](/posts/ai-coding-workflow). This is the final checkpoint before committing - did we actually build what we planned?
+
+![cat typing aggressively](https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExeDJvY2c2YmkzZ2xxeTZpaDl3ZjJhOWhob3ptanUwdXY4ejVhNmg4MiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/mcsPU3SkKrYDdW3aAU/giphy.gif)
+
+## The Problem
+
+AI assistants are eager to help. Too eager. You ask for a feature, they build the feature, then add "helpful" extras:
+
+- "I also refactored the adjacent module for consistency"
+- "Added comprehensive error handling throughout"
+- "Created a utility function we might need later"
+
+None of that was in the plan. It's gold-plating. And it creates:
+
+- Untested code paths
+- Unexpected behavior changes
+- Scope creep that compounds
+- Commits that don't match their message
+
+The [test-first enforcement](/posts/test-first-enforcement) and [plan critique](/posts/multi-llm-plan-critique) happen BEFORE implementation. But what about AFTER? How do you verify the implementation matches the plan?
+
+## The Solution
+
+A slash command called `/vibe-check` that audits what was built against what was planned.
+
+It's not a hook - it's a manual checkpoint I run before committing. The name is deliberately casual because it's a sanity check, not a gate.
+
+## How It Works
+
+The command lives in `.claude/commands/vibe-check.md` and instructs Claude to:
+
+<Mermaid chart={`
+flowchart TD
+    A["Run /vibe-check"] --> B[Find Plan Sources]
+    B --> C[Read Plan File]
+    B --> D[Read Story File]
+    B --> E[Check git diff]
+    C --> F[Cross-Reference]
+    D --> F
+    E --> F
+    F --> G{Each change in plan?}
+    G -->|Yes| H[Mark compliant]
+    G -->|No| I{Justified discovery?}
+    I -->|Yes| J[Note as discovery]
+    I -->|No| K[Flag as drift]
+    H --> L[Check Conventions]
+    J --> L
+    K --> L
+    L --> M[Generate Report]
+`} />
+
+### Step 1: Find the Plan Sources
+
+The command tells Claude where to look:
+
+```markdown
+**A. Claude Plan File (primary)**
+# Get the most recent plan file
+ls -t ~/.claude/plans/*.md | head -1
+
+**B. Story File (if referenced)**
+- Story files live at your docs folder
+- Pattern: docs/stories/3.8-*.md
+
+**C. ADR (if architectural work)**
+- Check docs/decisions/*.md for relevant ADRs
+```
+
+### Step 2: Read and Compare
+
+```bash
+# Most recent Claude plan
+cat "$(ls -t ~/.claude/plans/*.md | head -1)"
+
+# What changed this session
+git diff --name-only HEAD~5  # Recent commits
+git diff --name-only         # Uncommitted
+```
+
+### Step 3: Cross-Reference
+
+For each file in `git diff`:
+- Was it in the plan's "Files to Create" or "Files to Modify"?
+- If not, is it a justified discovery or gold-plating?
+
+### Step 4: Check Conventions
+
+The command includes a checklist of project conventions from CLAUDE.md:
+
+```markdown
+| Convention | Check |
+|------------|-------|
+| **Test-first** | Tests written before implementation? |
+| **Protocol-based** | New services implement protocols? |
+| **Dependency injection** | Services via deps.py? |
+| **Idempotent** | Check state before doing work? |
+| **Type hints** | All functions typed? |
+| **Graceful degradation** | Optional services fail gracefully? |
+| **No over-engineering** | Only requested changes? |
+```
+
+### Step 5: Generate Report
+
+The output is a structured audit:
+
+```markdown
+## Vibe Check: 2026-01-27
+
+### Sources
+- **Plan:** happy-paper-salesman.md
+- **Story:** 3.17-client-query-service.md
+- **ADR:** DATABASE_SCHEMA.md
+
+### Plan Adherence
+| Plan Item | Status | Notes |
+|-----------|--------|-------|
+| Create src/app/models/client.py | ✓ | |
+| Modify src/app/services/sales.py | ✓ | |
+| Modify src/app/protocols.py | ✓ | |
+| Add 13 tests | ✓ | |
+
+### Unplanned Work
+| Change | Justified? | Notes |
+|--------|------------|-------|
+| Updated models/__init__.py | ✓ | Required for exports |
+
+### Convention Compliance
+| Convention | Status | Notes |
+|------------|--------|-------|
+| Test-first | ✓ | tests written first |
+| Protocols | ✓ | Added to SalesProvider |
+| Types | ✓ | ClientType Literal |
+| Graceful degradation | ✓ | Returns [] on error |
+
+### Verdict
+**CLEAN**
+```
+
+## Real Example
+
+Say I'm building a client lookup feature for Dunder Mifflin Infinity. The plan was to implement `get_regional_clients()` with 13 specific tests.
+
+After implementation, `/vibe-check` found:
+
+**Plan adherence:** All 4 files modified as planned, all 13 tests implemented.
+
+**Unplanned work:** One file (`models/__init__.py`) was modified but not in the plan. Verdict: justified - the plan said "Export ClientType for reuse" which implies updating the init file.
+
+**Conventions:** All passed. Test-first followed, protocol updated, types complete, graceful degradation implemented.
+
+**Verdict: CLEAN**
+
+No drift. No gold-plating. Ready to commit.
+
+## The Command File
+
+Here's the structure of the command (`.claude/commands/vibe-check.md`):
+
+```markdown
+# Check
+
+Audit whether we stayed the course - did we stick to the plan
+and follow CLAUDE.md conventions?
+
+## Instructions
+
+### 1. Find the Plan Sources
+
+Check these locations:
+
+**A. Claude Plan File (primary)**
+\`\`\`bash
+ls -t ~/.claude/plans/*.md | head -1
+\`\`\`
+Read this file - it contains the implementation plan.
+
+**B. Story File (if referenced)**
+- Scan conversation for story references like "Story 3.8"
+- Story files live at your docs/stories/ folder
+
+**C. ADR (if architectural work)**
+- Check docs/decisions/*.md for relevant ADRs
+
+### 2. Read the Sources
+
+\`\`\`bash
+cat "$(ls -t ~/.claude/plans/*.md | head -1)"
+git diff --name-only HEAD~5
+git diff --name-only
+\`\`\`
+
+### 3. Cross-Reference
+
+From the plan file, check each section:
+- "Files to Create" - were they all created?
+- "Files to Modify" - were they all modified?
+- Implementation steps - completed in order?
+
+For each change we made:
+- Was it in the plan? (Y/N)
+- If not, justified discovery or gold-plating?
+
+### 4. Check CLAUDE.md Conventions
+
+| Convention | Check |
+|------------|-------|
+| **Test-first** | Tests written before implementation? |
+| **Protocol-based** | New services implement protocols? |
+| **Dependency injection** | Services via deps.py? |
+| **Type hints** | All functions typed? |
+| **Graceful degradation** | Optional services fail gracefully? |
+| **No over-engineering** | Only requested changes? |
+
+### 5. Report
+
+[structured output template]
+
+### Verdict
+**[CLEAN / MINOR DRIFT / OFF TRACK]**
+
+Be honest. Catching drift early saves debugging later.
+```
+
+## When Drift Happens
+
+Not every vibecheck is clean. When there's drift:
+
+**MINOR DRIFT** - Small additions that weren't planned but are reasonable:
+- Added a log statement
+- Fixed an unrelated typo
+- Updated a comment
+
+**OFF TRACK** - Significant unplanned work:
+- Refactored the `SalesRep` module "while I was in there"
+- Added regional filtering not in the story
+- Changed behavior of existing `Client` queries
+
+For minor drift, I usually let it slide. For off track, I either:
+1. Revert the unplanned changes
+2. Create a separate commit/PR for them
+3. Update the plan retroactively (if it was genuinely needed)
+
+## Why Manual, Not Automated
+
+Unlike the [plan critique hook](/posts/multi-llm-plan-critique), vibecheck is manual. Reasons:
+
+1. **Context matters** - Some drift is fine, some isn't. Judgment required.
+2. **Not every session needs it** - Quick fixes don't need audits.
+3. **It's a conversation** - Sometimes I want to discuss the drift with Claude.
+
+The goal isn't bureaucracy. It's catching problems before they compound.
+
+## The Workflow
+
+```
+Plan → Critique Hook → Implement → /vibe-check → Commit
+```
+
+The critique hook blocks bad plans. The vibecheck catches drift from good plans.
+
+Together they create a closed loop: what you planned is what you built.
+
+## Related
+
+- [My AI coding workflow](/posts/ai-coding-workflow) - The full system
+- [Multi-LLM plan critique](/posts/multi-llm-plan-critique) - Pre-implementation validation
+- [Test-first enforcement](/posts/test-first-enforcement) - Ensuring tests are in the plan
+
+---
+
+Staying on course is harder than starting on course. The vibecheck is how I verify we got there.

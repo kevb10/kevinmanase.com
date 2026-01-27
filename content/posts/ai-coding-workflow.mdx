@@ -1,7 +1,7 @@
 ---
 title: "How I Actually Code with AI (It's Not Just Prompting)"
 description: "My workflow for coding with Claude, Gemini, and Codex — user stories, multi-LLM plan critique, test-first enforcement, and staying on course."
-date: "2026-01-26"
+date: "2026-01-06"
 tags: ["ai", "workflow", "claude-code", "engineering"]
 published: true
 ---
@@ -25,7 +25,18 @@ I wanted a system that catches these before I'm 500 lines deep into the wrong so
 
 ## The Workflow
 
-![AI Coding Workflow - from user story through multi-LLM critique to commit](/diagrams/ai-coding-workflow.svg)
+<figure className="my-8 -mx-4 sm:mx-0">
+  <div className="overflow-x-auto">
+    <img
+      src="/diagrams/ai-coding-workflow.svg"
+      alt="AI Coding Workflow - from user story through multi-LLM critique to commit"
+      className="min-w-[800px] w-full max-w-none sm:min-w-0"
+    />
+  </div>
+  <figcaption className="text-center text-sm text-zinc-500 mt-2">
+    Scroll horizontally on mobile to see full diagram
+  </figcaption>
+</figure>
 
 Let me break this down.
 
@@ -110,7 +121,7 @@ I'm writing deeper dives on each piece:
 - [Context-Behavior-Constraint](/posts/cbc-acceptance-criteria) — Acceptance criteria that map to tests
 - [Multi-LLM Plan Critique](/posts/multi-llm-plan-critique) — The hook system in detail
 - [Test-First Enforcement](/posts/test-first-enforcement) — How to block plans without tests
-- Vibecheck (coming soon) — Staying on course
+- [Vibecheck](/posts/vibecheck) — Staying on course
 
 This workflow isn't perfect and I'm still iterating. But it's way better than "just prompt it and pray."
 

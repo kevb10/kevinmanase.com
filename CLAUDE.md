@@ -67,6 +67,21 @@ published: true
 ---
 ```
 
+## Anonymization
+
+When showing examples from real projects, use **Dunder Mifflin Infinity** as the stand-in:
+
+| Real | Blog Example |
+|------|--------------|
+| Project name | Dunder Mifflin Infinity |
+| Repo names | `dmi-backend`, `dmi-frontend` |
+| User stories | Sales features, client management, paper orders |
+| Models/entities | `Client`, `SalesRep`, `PaperOrder`, `Region` |
+| Test files | `test_sales.py`, `SalesRep.test.tsx` |
+| Services | `SalesService`, `ClientProvider` |
+
+This keeps examples relatable, funny, and doesn't expose actual client work.
+
 ## Notes
 - Kevin reviews via conversation, not PR comments
 - Tone matters more than polish

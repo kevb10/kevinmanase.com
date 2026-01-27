@@ -7,10 +7,11 @@
 - [x] **Multi-LLM Plan Critique** — `/posts/multi-llm-plan-critique` — Gemini + Codex hook system
 - [x] **Test-First Enforcement** — `/posts/test-first-enforcement` — Bash validator, blocking plans without tests
 - [x] **CBC Acceptance Criteria** — `/posts/cbc-acceptance-criteria` — Context-Behavior-Constraint format for testable AC
+- [x] **Vibecheck** — `/posts/vibecheck` — Auditing implementation against the plan
 
 ## In Progress
 
-- [ ] **Vibecheck** — Staying on course, verifying implementation matches plan
+(none)
 
 ## Ideas (Not Started)
 
