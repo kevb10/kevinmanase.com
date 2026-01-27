@@ -37,25 +37,11 @@ It's not a hook - it's a manual checkpoint I run before committing. The name is 
 
 The command lives in `.claude/commands/vibe-check.md` and instructs Claude to:
 
-<Mermaid chart={`
-flowchart TD
-    A["Run /vibe-check"] --> B[Find Plan Sources]
-    B --> C[Read Plan File]
-    B --> D[Read Story File]
-    B --> E[Check git diff]
-    C --> F[Cross-Reference]
-    D --> F
-    E --> F
-    F --> G{Each change in plan?}
-    G -->|Yes| H[Mark compliant]
-    G -->|No| I{Justified discovery?}
-    I -->|Yes| J[Note as discovery]
-    I -->|No| K[Flag as drift]
-    H --> L[Check Conventions]
-    J --> L
-    K --> L
-    L --> M[Generate Report]
-`} />
+<ThemedImage
+  lightSrc="/diagrams/vibecheck-light.png"
+  darkSrc="/diagrams/vibecheck-dark.png"
+  alt="Vibecheck workflow - gather sources, cross-reference against plan, check conventions, generate report"
+/>
 
 ### Step 1: Find the Plan Sources
 

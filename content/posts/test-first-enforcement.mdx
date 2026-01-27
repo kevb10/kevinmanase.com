@@ -34,22 +34,11 @@ If it fails, the [critique hook](/posts/multi-llm-plan-critique) blocks with exi
 
 ## What It Checks
 
-<Mermaid chart={`
-flowchart TD
-    A[Plan Content] --> B{Has ## Test section?}
-    B -->|No| C[Issue: No test section]
-    B -->|Yes| D{Has test files?}
-    D -->|No| E[Issue: No test files]
-    D -->|Yes| F{Tests before impl?}
-    F -->|No| G[Issue: Wrong order]
-    F -->|Yes| H{Coverage ratio OK?}
-    H -->|<50%| I[Issue: Low coverage]
-    H -->|>=50%| J[PASS]
-    C --> K[FAIL]
-    E --> K
-    G --> K
-    I --> J
-`} />
+<ThemedImage
+  lightSrc="/diagrams/test-first-light.png"
+  darkSrc="/diagrams/test-first-dark.png"
+  alt="Test-first validation flow - checks for test section, test files, ordering, and coverage ratio"
+/>
 
 ### Test File Patterns
 
