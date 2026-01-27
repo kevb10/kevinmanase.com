@@ -103,6 +103,11 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Allow content breakouts without horizontal scroll */
+body {
+  overflow-x: hidden;
+}
+
 /* Better focus styles */
 :focus-visible {
   outline: 2px solid currentColor;

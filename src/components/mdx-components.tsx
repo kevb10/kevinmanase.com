@@ -82,6 +82,23 @@ export const mdxComponents: MDXComponents = {
   ),
   img: ({ src, alt }) => {
     if (!src) return null;
+
+    // Handle diagrams (SVGs in /diagrams/) - break out wider with dark mode background
+    if (src.includes("/diagrams/") && src.endsWith(".svg")) {
+      return (
+        <span className="my-8 block -mx-6 sm:-mx-12 lg:-mx-32">
+          <span className="block bg-white dark:bg-zinc-100 rounded-xl p-4 shadow-sm dark:shadow-zinc-900/50">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={src}
+              alt={alt || ""}
+              className="w-full h-auto"
+            />
+          </span>
+        </span>
+      );
+    }
+
     // Handle GIFs and external images
     if (src.startsWith("http") || src.endsWith(".gif")) {
       return (
