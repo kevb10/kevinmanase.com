@@ -25,60 +25,72 @@ Example:
 
 The diagram must fit in **800px width**. This is critical.
 
-### Structure
-- Use **horizontal flow** (left-to-right) for linear processes
-- Use **vertical flow** (top-to-bottom) only when there are parallel branches
-- **Max 4-5 nodes per row** to fit width
-- Group related nodes in labeled containers
+### Layout Strategy: STACKED ROWS
 
-### Explicit Connections
-Always specify connections explicitly. Eraser needs clear arrows:
-- `A > B` means A flows to B
-- `A > B: label` adds a label to the connection
-- For loops: `D > B: retry` (explicitly connect back)
-- For decisions: use `> Yes:` and `> No:` labels
+Eraser AI prefers horizontal flow. To get vertical layouts, use **groups as rows** that stack top-to-bottom.
 
-### Decision Points
-For conditionals, be explicit:
 ```
-Decision diamond: "Tests pass?"
-- If yes: flows to Deploy
-- If no: flows to Fix Bugs, then loops back to [specific node]
+ROW 1 (top):    [Start] → [Step 1]
+                    ↓
+ROW 2:          [Step 2] → [Branch]
+                    ↓
+ROW 3:          [Step 3] → [Error]
+                    ↓
+ROW 4 (bottom): [End Success] [End Fail]
 ```
+
+**Key insight:** Each GROUP becomes a horizontal row. Groups stack vertically. This gives us top-to-bottom flow while working with Eraser's horizontal preference.
 
 ### Prompt Template
+
 ```
-[Diagram type]: [flow direction]
+Flowchart with STACKED HORIZONTAL ROWS (groups stack vertically):
 
-Nodes:
-- [Node 1]: [description] [color if relevant]
-- [Node 2]: [description]
-...
+ROW 1 - [LABEL] (top):
+- [Start node] (gray oval, start)
+- [Optional: first step]
 
-Flow:
-- Start > [Node 1]
-- [Node 1] > [Node 2]
-- [Node 2] > Decision: "[question]?"
-- Decision > [Node 3]: "Yes"
-- Decision > [Node 4]: "No"
-- [Node 4] > [Node 1]: "retry" (loop back)
+ROW 2 - [LABEL]:
+- [Main step] (color)
+- [Branch/alternative]: branches to [Alternative] (color)
 
-Groups:
-- Group "[Name]": [Node A], [Node B]
+ROW 3 - [LABEL]:
+- [Next step] (color)
+- [Error case]: branches to [Error] (red)
 
-Constraints:
-- Max 800px width
-- Horizontal layout preferred
-- Clear loop-back arrows for cycles
+ROW 4 - [LABEL] (bottom):
+- [End success] (green oval)
+- [End fail] (red oval) - error paths connect here
+
+Each ROW is a separate group. Groups stack top to bottom.
+Within each row, flow is left to right.
+Errors/alternatives on right side of each row.
+Success path flows down through rows.
 ```
 
-### Color Coding (for multi-system diagrams)
+### Row Design Guidelines
+
+- **2-4 nodes per row** max (fits 800px)
+- **Start node** in ROW 1, top-left
+- **End nodes** in final ROW, bottom
+- **Decisions** get their own row with the branch target
+- **Error paths** stay in their row, flow down to final FAIL
+- **Success path** flows down left side through each row
+
+### Color Coding
 - Claude/Anthropic: purple
 - Gemini/Google: blue
 - OpenAI/Codex: green
-- User actions: gray
+- User actions/system: gray
 - Errors/failures: red
 - Success: green
+- Warnings: yellow
+
+### Connections
+- `A > B` means A flows to B
+- `A > B: label` adds a label
+- For loops: explicitly state "loops back to ROW X"
+- For decisions: "Yes: continues down" / "No: branches right to [X]"
 
 ## Script Location
 
@@ -90,7 +102,7 @@ Requires `ERASER_API_KEY` from `.env.local`.
 
 ## After Generation
 
-1. Show both generated images to user
+1. Show generated image to user
 2. Ask if adjustments needed
 3. If yes, refine prompt and regenerate
 4. Output final MDX:
@@ -103,39 +115,75 @@ Requires `ERASER_API_KEY` from `.env.local`.
 />
 ```
 
-## Example Session
+## Example: Decision Tree
 
-User: `/diagram ci-pipeline Code pushed, tests run, if pass deploy to staging, if fail notify developer and stop`
+User: `/diagram test-validator Plan validation with test-first checks`
 
 You craft:
 ```
-Flowchart, horizontal layout, max 800px width:
+Flowchart with STACKED HORIZONTAL ROWS (groups stack vertically):
 
-Nodes:
-- Start: "Code Pushed" (gray oval)
-- Tests: "Run Tests" (yellow box)
-- Decision: "Pass?" (diamond)
-- Deploy: "Deploy to Staging" (green box)
-- Notify: "Notify Developer" (red box)
-- End-success: "Done" (green oval)
-- End-fail: "Stopped" (red oval)
+ROW 1 - INPUT (top):
+- Plan Content (gray oval, start)
 
-Flow:
-- Start > Tests
-- Tests > Decision
-- Decision > Deploy: "Yes"
-- Decision > Notify: "No"
-- Deploy > End-success
-- Notify > End-fail
+ROW 2 - FIRST CHECK:
+- Has Test Section? (blue diamond)
+- No: branches to No Test Section (red box)
 
-Groups:
-- "CI Pipeline": Tests, Decision
-- "Outcomes": Deploy, Notify
+ROW 3 - SECOND CHECK:
+- Has Test Files? (blue diamond)
+- No: branches to No Test Files (red box)
 
-Keep compact, horizontal flow, fit in 800px.
+ROW 4 - ORDER CHECK:
+- Tests Before Impl? (blue diamond)
+- No: branches to Wrong Order (red box)
+
+ROW 5 - COVERAGE:
+- Coverage OK? (blue diamond)
+- Less than 50%: branches to Low Coverage (yellow box)
+
+ROW 6 - RESULTS (bottom):
+- PASS (green oval) - success path and warnings connect here
+- FAIL (red oval) - all red error boxes connect here
+
+Each ROW is a separate group. Groups stack top to bottom.
+Within each row, flow is left to right.
+Errors on right side flow down to FAIL.
+Success path flows down to PASS.
 ```
 
-Then run:
-```bash
-./scripts/generate-diagram.sh ci-pipeline "<the prompt above>"
+## Example: Multi-Phase Workflow
+
+User: `/diagram deploy-flow Code to production pipeline`
+
+You craft:
+```
+Flowchart with STACKED HORIZONTAL ROWS (groups stack vertically):
+
+ROW 1 - TRIGGER (top):
+- Push to main (gray oval, start)
+
+ROW 2 - BUILD:
+- Run build (blue box)
+- Build fails: branches to Build Error (red box)
+
+ROW 3 - TEST:
+- Run tests (blue box)
+- Tests fail: branches to Test Error (red box)
+
+ROW 4 - REVIEW:
+- Approval required? (diamond)
+- Yes: branches to Wait for approval (yellow box)
+
+ROW 5 - DEPLOY:
+- Deploy to staging (purple box)
+- Deploy to prod (purple box)
+
+ROW 6 - RESULTS (bottom):
+- Success (green oval)
+- Failed (red oval) - errors connect here
+
+Each ROW is a separate group. Groups stack top to bottom.
+Build Error and Test Error flow down to Failed.
+Approval flows down to Deploy when approved.
 ```
