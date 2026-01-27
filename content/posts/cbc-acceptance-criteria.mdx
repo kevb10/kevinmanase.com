@@ -1,27 +1,27 @@
 ---
-title: "Context-Behavior-Constraint: Acceptance Criteria That Actually Work"
-description: "A format for writing acceptance criteria that maps directly to tests. Inspired by Gherkin, but less verbose and more LLM-friendly."
+title: "context-behavior-constraint: acceptance criteria that work"
+description: "a format for writing acceptance criteria that maps directly to tests. inspired by gherkin, but less verbose and more llm-friendly."
 date: "2026-01-20"
 tags: ["testing", "engineering", "ai", "workflow"]
 published: true
 ---
 
-A colleague introduced me to Gherkin (Given/When/Then) and I liked the idea but hated the execution. Too verbose. No place for edge cases. Mixes setup with inputs.
+a colleague introduced me to gherkin (given/when/then) and i liked the idea but hated the execution. too verbose. no place for edge cases. mixes setup with inputs.
 
-So I made my own format. I call it **Context-Behavior-Constraint (CBC)**.
+so i made my own format. i call it **context-behavior-constraint (CBC)**.
 
 ![testing structure](https://media.giphy.com/media/3o7btNa0RUYa5E7iiQ/giphy.gif)
 
-## The Problem with Common Formats
+## the problem with common formats
 
-| Format | What's Wrong |
+| format | what's wrong |
 |--------|--------------|
-| Prose | Ambiguous, buries edge cases, hard for LLMs to parse |
-| Gherkin | Verbose, no constraint section, "should" language |
-| Checklists | No structure, can't tell setup from outcome |
-| User stories | "As a... I want..." is motivation, not behavior |
+| prose | ambiguous, buries edge cases, hard for llms to parse |
+| gherkin | verbose, no constraint section, "should" language |
+| checklists | no structure, can't tell setup from outcome |
+| user stories | "as a... i want..." is motivation, not behavior |
 
-The insight: tests have a natural structure — **Arrange-Act-Assert**. Acceptance criteria should mirror that.
+the insight: tests have a natural structure. **arrange-act-assert**. acceptance criteria should mirror that.
 
 <Mermaid chart={`
 flowchart LR
@@ -36,7 +36,7 @@ flowchart LR
     C -.-> F
 `} />
 
-## The Format
+## the format
 
 ```markdown
 **context**
@@ -54,24 +54,24 @@ flowchart LR
 - non-goal: explicitly out of scope for this story
 ```
 
-That's it. Every field maps directly to test code.
+that's it. every field maps directly to test code.
 
-## Field → Test Code Mapping
+## field → test code mapping
 
-| Field | Purpose | Test Code |
+| field | purpose | test code |
 |-------|---------|-----------|
-| `actor` | Who performs the action | Test class name |
-| `preconditions` | State before test | `setUp()`, fixtures |
-| `inputs` | Values passed in | Function arguments |
-| `when` | The action | Function call |
-| `then` | Primary assertion | `assert` |
-| `and` | Additional assertions | More `assert`s |
-| `edge case` | Boundary conditions | Separate test methods |
-| `non-goal` | Scope boundaries | What NOT to test |
+| `actor` | who performs the action | test class name |
+| `preconditions` | state before test | `setUp()`, fixtures |
+| `inputs` | values passed in | function arguments |
+| `when` | the action | function call |
+| `then` | primary assertion | `assert` |
+| `and` | additional assertions | more `assert`s |
+| `edge case` | boundary conditions | separate test methods |
+| `non-goal` | scope boundaries | what NOT to test |
 
-## Real Example
+## real example
 
-Here's an actual AC from a blend scoring feature:
+here's an actual AC from a blend scoring feature:
 
 ```markdown
 ### 1. Direct Signal Match
@@ -92,7 +92,7 @@ Here's an actual AC from a blend scoring feature:
 - non-goal: blending items dan created (always show those)
 ```
 
-And the test it generates:
+and the test it generates:
 
 ```python
 class TestBlendDirectSignalMatch:
@@ -132,34 +132,34 @@ class TestBlendDirectSignalMatch:
         assert result["bad_place"].score == min(r.score for r in result.values())
 ```
 
-Notice how the test basically writes itself. Each AC field has a home in the test.
+notice how the test basically writes itself. each AC field has a home in the test.
 
-## Why Constraints Matter
+## why constraints matter
 
-The `constraints` section is the secret weapon. It captures two things:
+the `constraints` section is the secret weapon. it captures two things:
 
-**Edge cases** — boundary conditions that need their own tests. Without this, edge cases get buried in prose or forgotten entirely.
+**edge cases.** boundary conditions that need their own tests. without this, edge cases get buried in prose or forgotten entirely.
 
-**Non-goals** — what's explicitly out of scope. This prevents scope creep. When someone asks "should we also handle X?" you can point to the non-goal and say "not in this story."
+**non-goals.** what's explicitly out of scope. this prevents scope creep. when someone asks "should we also handle X?" you can point to the non-goal and say "not in this story."
 
-## Why This Works for AI Coding
+## why this works for ai coding
 
-When I'm [coding with Claude](/posts/ai-coding-workflow), the CBC format makes AC trivially parseable:
+when i'm [coding with claude](/posts/ai-coding-workflow), the CBC format makes AC trivially parseable:
 
 ```python
 context = parse_section("context")
-preconditions = context["preconditions"]  # Direct access
+preconditions = context["preconditions"]  # direct access
 ```
 
-With prose, Claude has to infer: "Before the test runs, we need to... which means..."
+with prose, claude has to infer: "before the test runs, we need to... which means..."
 
-Inference = drift. Explicit labels = precision.
+inference = drift. explicit labels = precision.
 
-This ties into my [test-first enforcement](/posts/test-first-enforcement) — plans must include test files, and CBC makes those tests obvious to generate.
+this ties into my [test-first enforcement](/posts/test-first-enforcement). plans must include test files, and CBC makes those tests obvious to generate.
 
-## Why Not Gherkin?
+## why not gherkin?
 
-I tried Gherkin. Here's the same behavior:
+i tried gherkin. here's the same behavior:
 
 ```gherkin
 Given dan has a SIGNALS edge to franklins with strength 90
@@ -170,18 +170,18 @@ And franklins.score_breakdown.direct_signal should be 90
 And franklins.reasons should include "You love this (90)"
 ```
 
-Problems:
-- Every line needs Given/When/Then prefix (verbose)
-- No separation between preconditions and inputs
-- No edge case section
+problems:
+- every line needs given/when/then prefix (verbose)
+- no separation between preconditions and inputs
+- no edge case section
 - "should be" is ambiguous (MUST vs SHOULD?)
-- Where do non-goals go?
+- where do non-goals go?
 
-Gherkin is fine for documentation. It's not great for test generation.
+gherkin is fine for documentation. it's not great for test generation.
 
-## Template
+## template
 
-Here's what I use for stories:
+here's what i use for stories:
 
 ```markdown
 # X.Y Story Title
@@ -232,29 +232,29 @@ As [actor], I [action] so that [outcome].
 - [ ] Edge cases have dedicated tests
 ```
 
-## When to Use This
+## when to use this
 
-**Use CBC for:**
-- User stories that need tests
-- Bug reports with reproduction steps
-- Any behavior spec an LLM will implement
+**use CBC for:**
+- user stories that need tests
+- bug reports with reproduction steps
+- any behavior spec an llm will implement
 
-**Don't use CBC for:**
-- Design exploration (use prose)
-- API docs (use OpenAPI)
-- Architecture decisions (use ADRs)
+**don't use CBC for:**
+- design exploration (use prose)
+- api docs (use openapi)
+- architecture decisions (use adrs)
 
-## The Tradeoff
+## the tradeoff
 
-CBC is more rigid than prose. Simple stories still need the full structure. But the payoff is:
+CBC is more rigid than prose. simple stories still need the full structure. but the payoff is:
 
-- Claude can generate tests directly from AC
-- Reviewers can scan quickly (labels as anchors)
-- Edge cases are explicit, not buried
-- Non-goals prevent "while we're at it..." creep
+- claude can generate tests directly from AC
+- reviewers can scan quickly (labels as anchors)
+- edge cases are explicit, not buried
+- non-goals prevent "while we're at it..." creep
 
-For my [AI coding workflow](/posts/ai-coding-workflow), that tradeoff is worth it every time.
+for my [ai coding workflow](/posts/ai-coding-workflow), that tradeoff is worth it every time.
 
 ---
 
-*Thanks to a colleague who introduced me to Gherkin. The frustration led to something better.*
+*thanks to a colleague who introduced me to gherkin. the frustration led to something better.*

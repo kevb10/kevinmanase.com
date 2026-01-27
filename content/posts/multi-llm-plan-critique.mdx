@@ -1,29 +1,29 @@
 ---
-title: "Building a Multi-LLM Plan Critique System for Claude Code"
-description: "How I built a hook that sends plans through Gemini and Codex before letting Claude implement anything."
+title: "building a multi-llm plan critique system for claude code"
+description: "how i built a hook that sends plans through gemini and codex before letting claude implement anything."
 date: "2026-01-10"
 tags: ["claude-code", "hooks", "gemini", "codex", "engineering"]
 published: true
 ---
 
-This is a deep dive into the plan critique system I mentioned in [my AI coding workflow post](/posts/ai-coding-workflow). It's a Claude Code hook that blocks implementation until multiple LLMs have reviewed the plan.
+this is a deep dive into the plan critique system i mentioned in [my ai coding workflow post](/posts/ai-coding-workflow). it's a claude code hook that blocks implementation until multiple llms have reviewed the plan.
 
 ![planning vibes](https://media.giphy.com/media/3o7btPCcdNniyf0ArS/giphy.gif)
 
-## The Goal
+## the goal
 
-When Claude creates an implementation plan, I want:
+when claude creates an implementation plan, i want:
 
-1. **Test-first enforcement** — Block if no test files listed
-2. **Gemini 3 Flash critique** — Architectural review, coverage gaps
-3. **Codex second opinion** — What did Gemini miss?
-4. **All feedback visible to Claude** before implementation starts
+1. **test-first enforcement.** block if no test files listed
+2. **gemini 3 flash critique.** architectural review, coverage gaps
+3. **codex second opinion.** what did gemini miss?
+4. **all feedback visible to claude** before implementation starts
 
-## How Claude Code Hooks Work
+## how claude code hooks work
 
-Hooks are commands that run at specific points in Claude's workflow. The one I care about is `PostToolUse` — runs after a tool completes.
+hooks are commands that run at specific points in claude's workflow. the one i care about is `PostToolUse`. runs after a tool completes.
 
-In `~/.claude/settings.json`:
+in `~/.claude/settings.json`:
 
 ```json
 {
@@ -44,9 +44,9 @@ In `~/.claude/settings.json`:
 }
 ```
 
-This triggers my script whenever Claude exits plan mode (i.e., the plan is ready for approval).
+this triggers my script whenever claude exits plan mode (i.e., the plan is ready for approval).
 
-## The Architecture
+## the architecture
 
 <ThemedImage
   lightSrc="/diagrams/multi-llm-critique-light.png"
@@ -54,11 +54,11 @@ This triggers my script whenever Claude exits plan mode (i.e., the plan is ready
   alt="Multi-LLM plan critique workflow showing Claude, Gemini, and Codex phases"
 />
 
-## The Hard Parts
+## the hard parts
 
-### Problem 1: Blocking Doesn't Work with JSON
+### problem 1: blocking doesn't work with json
 
-My first attempt returned:
+my first attempt returned:
 
 ```json
 {
@@ -67,18 +67,18 @@ My first attempt returned:
 }
 ```
 
-Claude Code said "hook succeeded" and kept going. The `decision: block` was ignored.
+claude code said "hook succeeded" and kept going. the `decision: block` was ignored.
 
-**Fix:** Use exit code 2 + stderr instead:
+**fix:** use exit code 2 + stderr instead:
 
 ```bash
-# This gets ignored
+# this gets ignored
 cat << EOF
 {"decision": "block", "reason": "..."}
 EOF
 exit 0
 
-# This actually blocks
+# this actually blocks
 cat >&2 << EOF
 TEST-FIRST VIOLATION - Plan Rejected
 ...
@@ -86,42 +86,42 @@ EOF
 exit 2
 ```
 
-Exit code 2 signals "hook blocked this action" and stderr content becomes the message Claude sees.
+exit code 2 signals "hook blocked this action" and stderr content becomes the message claude sees.
 
-### Problem 2: Background Processes Are Useless
+### problem 2: background processes are useless
 
-I tried running the LLM critiques in the background:
+i tried running the llm critiques in the background:
 
 ```bash
 ( ... gemini ... codex ... ) &
 ```
 
-Hook returned immediately. Critique ran in the background. Claude never saw it because the hook was already done.
+hook returned immediately. critique ran in the background. claude never saw it because the hook was already done.
 
-**Fix:** Make it synchronous. Yes, it takes 20-30 seconds. Worth it.
+**fix:** make it synchronous. yes, it takes 20-30 seconds. worth it.
 
 ```bash
-# Blocking - Claude waits and sees the result
+# blocking - claude waits and sees the result
 GEMINI_RESULT=$(opencode run -m "openrouter/google/gemini-3-flash-preview" "$PROMPT")
 CODEX_RESULT=$(codex exec --full-auto "$PROMPT")
 ```
 
-### Problem 3: Plan Freshness
+### problem 3: plan freshness
 
-The hook reads the most recent plan file from `~/.claude/plans/`. But if the user takes too long reviewing, the plan gets "stale" and the hook silently exits:
+the hook reads the most recent plan file from `~/.claude/plans/`. but if the user takes too long reviewing, the plan gets "stale" and the hook silently exits:
 
 ```
 Plan age: 288s (max 120s)
 EXIT: Plan too old
 ```
 
-Claude sees "hook succeeded" and proceeds.
+claude sees "hook succeeded" and proceeds.
 
-**Partial fix:** Increased timeout to 600s. Better fix would be reading from `tool_response.plan` in the hook input instead of relying on file timestamps.
+**partial fix:** increased timeout to 600s. better fix would be reading from `tool_response.plan` in the hook input instead of relying on file timestamps.
 
-## The Code
+## the code
 
-Here's the main hook script. It's messy but it works.
+here's the main hook script. it's messy but it works.
 
 ```bash
 #!/bin/bash
@@ -134,22 +134,22 @@ log_debug() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$DEBUG_LOG"
 }
 
-# Find most recent plan file
+# find most recent plan file
 PLAN_FILE=$(ls -t ~/.claude/plans/*.md 2>/dev/null | head -1)
 
 if [[ ! -f "$PLAN_FILE" ]]; then
-    exit 0  # No plan, nothing to do
+    exit 0  # no plan, nothing to do
 fi
 
-# Freshness check
+# freshness check
 PLAN_AGE=$(($(date +%s) - $(stat -f %m "$PLAN_FILE")))
 if [[ $PLAN_AGE -gt 600 ]]; then
-    exit 0  # Too old, skip
+    exit 0  # too old, skip
 fi
 
 PLAN_CONTENT=$(cat "$PLAN_FILE")
 
-# Test-first check (separate script)
+# test-first check (separate script)
 TEST_CHECK=$(echo "$PLAN_CONTENT" | ~/.claude/hooks/test-first-check.sh)
 TEST_PASSED=$(echo "$TEST_CHECK" | jq -r '.passed')
 
@@ -166,13 +166,13 @@ EOF
     exit 2
 fi
 
-# Gemini critique
+# gemini critique
 GEMINI_PROMPT="You are a senior architect reviewing an implementation plan...
 $PLAN_CONTENT"
 
 GEMINI_RESULT=$(opencode run -m "openrouter/google/gemini-3-flash-preview" "$GEMINI_PROMPT" 2>/dev/null || echo "[unavailable]")
 
-# Codex reviews Gemini's critique
+# codex reviews gemini's critique
 CODEX_PROMPT="Review this plan AND Gemini's critique. What did Gemini miss?
 ---
 PLAN:
@@ -183,7 +183,7 @@ $GEMINI_RESULT"
 
 CODEX_RESULT=$(codex exec --full-auto "$CODEX_PROMPT" 2>/dev/null || echo "[unavailable]")
 
-# Return to Claude
+# return to claude
 FULL_CRITIQUE="PLAN CRITIQUE FROM GEMINI + CODEX
 
 ## Gemini 3 Flash
@@ -200,37 +200,37 @@ jq -n --arg ctx "$FULL_CRITIQUE" '{
 }'
 ```
 
-## What the Critiques Look Like
+## what the critiques look like
 
-Here's an actual critique from a recent plan:
+here's an actual critique from a recent plan:
 
-**Gemini:**
+**gemini:**
 > **Test Coverage (PRIMARY CRITIQUE - INSUFFICIENT)**
 > While the plan includes `collection-viewer.test.ts`, it has significant gaps:
 > - Missing Add Page Tests: You modify `src/app/collection/[id]/add/page.tsx` but provide no corresponding test file.
 > - Null Safety: `currentAndeeTag` can now be `null`. Tests must verify sub-components don't crash.
 
-**Codex:**
+**codex:**
 > - Missed test scenario: `?viewer=` present but `useCurrentAndee` reports authenticated; ensure viewer override wins
 > - Test quality issue: `page.test.tsx` uses `vi.mock` inside tests; this won't rewire imports after module is loaded
 
-They catch different things. That's the point.
+they catch different things. that's the point.
 
-## What's Missing
+## what's missing
 
-Things I'd improve:
+things i'd improve:
 
-1. **Read plan from hook input** instead of filesystem (avoids staleness issues)
-2. **Add confidence weights** — if both models agree on an issue, flag it higher
-3. **Auto-apply suggestions** — generate a diff for test files mentioned in critiques
-4. **More models** — GPT-4o, Claude itself reviewing its own plan
+1. **read plan from hook input** instead of filesystem (avoids staleness issues)
+2. **add confidence weights.** if both models agree on an issue, flag it higher
+3. **auto-apply suggestions.** generate a diff for test files mentioned in critiques
+4. **more models.** gpt-4o, claude itself reviewing its own plan
 
-## Related
+## related
 
-- [My overall AI coding workflow](/posts/ai-coding-workflow)
-- [Test-first enforcement](/posts/test-first-enforcement) — the validator script
-- The test-first-check.sh script details (coming soon)
+- [my overall ai coding workflow](/posts/ai-coding-workflow)
+- [test-first enforcement](/posts/test-first-enforcement). the validator script
+- the test-first-check.sh script details (coming soon)
 
 ---
 
-The hook code lives in my dotfiles. Still iterating on it.
+the hook code lives in my dotfiles. still iterating on it.

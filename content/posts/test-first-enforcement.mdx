@@ -1,38 +1,38 @@
 ---
-title: "Enforcing Test-First Development with Claude Code Hooks"
-description: "A bash script that blocks implementation plans until they include test files. No tests, no code."
+title: "enforcing test-first development with claude code hooks"
+description: "a bash script that blocks implementation plans until they include test files. no tests, no code."
 date: "2026-01-15"
 tags: ["testing", "claude-code", "hooks", "tdd"]
 published: true
 ---
 
-Part of [my AI coding workflow](/posts/ai-coding-workflow). This is the script that validates plans have tests before implementation files.
+part of [my ai coding workflow](/posts/ai-coding-workflow). this is the script that validates plans have tests before implementation files.
 
 ![testing gif](https://media.giphy.com/media/gw3IWyGkC0rsazTi/giphy.gif)
 
-## The Problem
+## the problem
 
-AI coding assistants will happily generate implementation without tests. Ask for a feature, you get the feature. Maybe tests later. Maybe never.
+ai coding assistants will happily generate implementation without tests. ask for a feature, you get the feature. maybe tests later. maybe never.
 
-This leads to:
-- Code that works until it doesn't
-- Features that drift from spec
-- No documentation of expected behavior
-- Regressions when you touch adjacent code
+this leads to:
+- code that works until it doesn't
+- features that drift from spec
+- no documentation of expected behavior
+- regressions when you touch adjacent code
 
-I wanted Claude to literally be unable to proceed without test files in the plan.
+i wanted claude to literally be unable to proceed without test files in the plan.
 
-## The Solution
+## the solution
 
-A bash script that:
-1. Scans the plan for test file patterns
-2. Scans for implementation file patterns
-3. Checks that tests appear BEFORE implementation
-4. Returns JSON with pass/fail and issues
+a bash script that:
+1. scans the plan for test file patterns
+2. scans for implementation file patterns
+3. checks that tests appear BEFORE implementation
+4. returns json with pass/fail and issues
 
-If it fails, the [critique hook](/posts/multi-llm-plan-critique) blocks with exit code 2.
+if it fails, the [critique hook](/posts/multi-llm-plan-critique) blocks with exit code 2.
 
-## What It Checks
+## what it checks
 
 <ThemedImage
   lightSrc="/diagrams/test-first-light.png"
@@ -40,9 +40,9 @@ If it fails, the [critique hook](/posts/multi-llm-plan-critique) blocks with exi
   alt="Test-first validation flow - checks for test section, test files, ordering, and coverage ratio"
 />
 
-### Test File Patterns
+### test file patterns
 
-The script recognizes:
+the script recognizes:
 - `test_*.py` (pytest)
 - `*_test.py` (pytest)
 - `*.test.ts` / `*.test.tsx` (vitest/jest)
@@ -50,9 +50,9 @@ The script recognizes:
 - `tests/*.py`
 - `__tests__/*`
 
-### Implementation File Patterns
+### implementation file patterns
 
-Non-test files in:
+non-test files in:
 - `src/`
 - `app/`
 - `components/`
@@ -63,7 +63,7 @@ Non-test files in:
 - `utils/`
 - `helpers/`
 
-## The Script
+## the script
 
 ```bash
 #!/bin/bash
@@ -88,12 +88,12 @@ LINE_NUM=0
 while IFS= read -r line; do
     ((LINE_NUM++)) || true
 
-    # Test section headers
+    # test section headers
     if echo "$line" | grep -qiE "^#+\s*(test|tests)"; then
         HAS_TEST_SECTION=true
     fi
 
-    # Test file patterns
+    # test file patterns
     if echo "$line" | grep -qiE "(test_[a-z_]+\.py|[a-z_]+_test\.py|\.test\.(ts|tsx|js|jsx)|\.spec\.(ts|tsx|js|jsx)|tests/[a-z_]+\.py|__tests__/)"; then
         HAS_TEST_FILES=true
         ((TEST_FILE_COUNT++)) || true
@@ -102,7 +102,7 @@ while IFS= read -r line; do
         fi
     fi
 
-    # Implementation file patterns (non-test)
+    # implementation file patterns (non-test)
     if echo "$line" | grep -qiE "(src/|app/|components/|lib/|services/|api/|models/|utils/|helpers/)[a-z0-9_/-]+\.(py|ts|tsx|js|jsx)" && \
        ! echo "$line" | grep -qiE "(test_|_test\.|\.test\.|\.spec\.)"; then
         ((IMPL_FILE_COUNT++)) || true
@@ -113,12 +113,12 @@ while IFS= read -r line; do
 
 done <<< "$PLAN_CONTENT"
 
-# Order check
+# order check
 if [[ $FIRST_TEST_LINE -lt $FIRST_IMPL_LINE ]]; then
     TESTS_BEFORE_IMPL=true
 fi
 
-# Build issues
+# build issues
 if [[ "$HAS_TEST_SECTION" == false ]]; then
     ISSUES+=("No test section found (expected '## Tests' or '## Test Files')")
 fi
@@ -131,7 +131,7 @@ if [[ "$HAS_TEST_FILES" == true && "$TESTS_BEFORE_IMPL" == false && $IMPL_FILE_C
     ISSUES+=("Tests should be listed BEFORE implementation files")
 fi
 
-# Coverage ratio warning
+# coverage ratio warning
 if [[ $TEST_FILE_COUNT -gt 0 && $IMPL_FILE_COUNT -gt 0 ]]; then
     RATIO=$(echo "scale=2; $TEST_FILE_COUNT / $IMPL_FILE_COUNT" | bc)
     if (( $(echo "$RATIO < 0.5" | bc -l) )); then
@@ -139,13 +139,13 @@ if [[ $TEST_FILE_COUNT -gt 0 && $IMPL_FILE_COUNT -gt 0 ]]; then
     fi
 fi
 
-# Pass/fail
+# pass/fail
 PASSED=true
 if [[ "$HAS_TEST_FILES" == false ]]; then
     PASSED=false
 fi
 
-# Output JSON
+# output json
 ISSUES_JSON="[]"
 if [[ ${#ISSUES[@]} -gt 0 ]]; then
     ISSUES_JSON=$(printf '%s\n' "${ISSUES[@]}" | jq -R . | jq -s .)
@@ -164,9 +164,9 @@ cat << EOF
 EOF
 ```
 
-## What a Valid Plan Looks Like
+## what a valid plan looks like
 
-The hook forces plans to follow this structure:
+the hook forces plans to follow this structure:
 
 ```markdown
 ## User Story
@@ -196,11 +196,11 @@ As a user, I want to see collection creators...
 - src/hooks/useCreator.ts
 ```
 
-Tests first. Implementation second. No exceptions.
+tests first. implementation second. no exceptions.
 
-## How It Blocks
+## how it blocks
 
-When the check fails, the main hook outputs to stderr and exits with code 2:
+when the check fails, the main hook outputs to stderr and exits with code 2:
 
 ```
 TEST-FIRST VIOLATION - Plan Rejected
@@ -212,11 +212,11 @@ Issues:
 Fix: Add test files BEFORE implementation files in your plan.
 ```
 
-Claude sees this and has to revise the plan before proceeding.
+claude sees this and has to revise the plan before proceeding.
 
-## Results
+## results
 
-From my debug logs, here's what a revision cycle looks like:
+from my debug logs, here's what a revision cycle looks like:
 
 ```
 [16:25:02] Test check result: passed: false, testFileCount: 0
@@ -225,21 +225,21 @@ From my debug logs, here's what a revision cycle looks like:
 [16:26:15] Test-first check PASSED - starting LLM critique
 ```
 
-First attempt: no tests, blocked. Second attempt: 5 test files, proceeds to critique.
+first attempt: no tests, blocked. second attempt: 5 test files, proceeds to critique.
 
-## Limitations
+## limitations
 
-- Doesn't verify test content is meaningful (just that files are listed)
-- Pattern matching is regex-based, could miss unusual conventions
-- Doesn't check that test files actually get created during implementation
+- doesn't verify test content is meaningful (just that files are listed)
+- pattern matching is regex-based, could miss unusual conventions
+- doesn't check that test files actually get created during implementation
 
-The [vibecheck](/posts/ai-coding-workflow) at the end catches some of these, but it's not perfect.
+the [vibecheck](/posts/vibecheck) at the end catches some of these, but it's not perfect.
 
-## Related
+## related
 
-- [My AI coding workflow](/posts/ai-coding-workflow) — The full system
-- [Multi-LLM plan critique](/posts/multi-llm-plan-critique) — What happens after test-first passes
+- [my ai coding workflow](/posts/ai-coding-workflow). the full system
+- [multi-llm plan critique](/posts/multi-llm-plan-critique). what happens after test-first passes
 
 ---
 
-The script is ~80 lines of bash. Could be cleaner but it does the job.
+the script is ~80 lines of bash. could be cleaner but it does the job.
