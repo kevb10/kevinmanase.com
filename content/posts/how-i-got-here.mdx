@@ -1,0 +1,149 @@
+---
+title: "how i got here"
+description: "the ai coding tools i tried, what broke, and where i landed. from copilot to cursor to claude code."
+date: "2026-01-27"
+tags: ["ai", "workflow", "tools", "claude-code", "cursor"]
+published: false
+---
+
+i've mass produced slop. shipped fragile code. burned tokens on research that went nowhere. this post is about that.. and what i do differently now.
+
+![trial and error vibes](https://media.giphy.com/media/3o7btPCcdNniyf0ArS/giphy.gif)
+
+## the principles (learned the hard way)
+
+before the tools, the mental model.
+
+1. **don't outsource the thinking.** ai amplifies your thinking. or lack thereof.
+2. **bad research leads to bad plans leads to 100 bad lines of code.** invest in getting the plan right.
+3. **context is everything.** better tokens in, better tokens out.
+4. **the job is management now.** there was a south by talk in 2025 about this. engineers are managers. you manage the ai. coding is easy now. thinking and shipping is hard.
+
+on time. on scope. no slop.
+
+## the experiments
+
+i tried a lot of things. here's what worked and what didn't.
+
+### copilot tab model
+
+my first real experience with ai coding. you write comments and stubs, then tab through completions.
+
+**what worked:** the manual work forces clarity. you have to think the task through before the ai can help. that's a feature not a bug.
+
+**what broke:** the model was smaller, weaker. no broad context. it could complete a function but didn't know your codebase.
+
+### chatgpt and claude (chat interfaces)
+
+before the coding tools, just chat. paste code in, get suggestions back.
+
+**what worked:** good for planning, brainstorming, fixing bugs, high level direction.
+
+**what broke:** no codebase access. limited context window. you're the copy-paste middleware.
+
+### cursor
+
+this is where productivity went through the roof. and so did technical debt.
+
+**what worked:**
+- model picker. use whatever model fits the task.
+- their tab model is probably best in class.
+- agent mode felt like magic at first.
+
+**what broke:**
+- the model picker is also a con. llms are unpredictable enough. picking different models for different tasks adds more unpredictability.
+- their rules files (cursor.md, etc) weren't respected well. felt like shouting into the void.
+- lack of guardrails let bad practices run wild.
+
+i shipped slop for months. not one bad feature.. months of slop built on slop. we shipped a product like that. it performed poorly. fragile. and the worst part? even when better models and techniques came along, the context was already polluted.
+
+### what polluted context looks like
+
+- inconsistent patterns across the codebase
+- stale documentation that says one thing while code does another
+- abandoned experiments that left crumbs everywhere
+- the llm gets confused about what's true
+
+you end up in a hole. the ai is working with bad context, producing more bad code, which becomes more bad context. hard to recover.
+
+### devin
+
+everyone was hyped. give it a task, it goes and does it autonomously.
+
+**what worked:** the vision makes sense. as an investor, i'd invest.
+
+**what broke:** slow. human in the loop is still very much required. maybe someday, not today.
+
+### google spec-kit
+
+four step workflow: specify, plan, tasks, implement.
+
+**what worked:** thorough. very thorough.
+
+**what broke:** too thorough. it would generate like 75 tasks. that's fine for mature codebases with well-defined features. but startups need narrow scope. it wanted to be perfect and that was counterproductive.
+
+### claude code
+
+tried it once. never looked back.
+
+**what worked:**
+- felt in control. there's a manual acceptance mode for each edit. micro approvals. you're in charge.
+- CLAUDE.md is respected. it actually reads it. felt like claude knew me. knew my patterns. hard to explain but the vibe was right.
+- subagents. parallel work without burning your main context on research. huge unlock.
+- plan mode keeps you on track. the planning and implementation are separate. cleaner.
+- sonnet and opus were the flagship models, and claude code is the harness built by the same team. why use anything else.
+
+**what broke:** you're locked to anthropic models. some days performance dips and you just have to wait it out.
+
+but the tradeoff is worth it.
+
+<Mermaid chart={`
+flowchart LR
+    A["copilot"] --> B["chatgpt/claude"]
+    B --> C["cursor"]
+    C --> D["slop era"]
+    D --> E["claude code"]
+    E --> F["where i am now"]
+`} />
+
+## why claude code felt different
+
+the "claude knew me" thing is hard to articulate. but here's what's concrete:
+
+**progressive disclosure.** CLAUDE.md used to need to be long. now you can slice it per domain. subfolder claude.md files. index things, don't dump them. point to your ADRs, your stories, your acceptance criteria format. claude only reads what's relevant when it's relevant.
+
+**subagents preserve context.** research burns tokens. if you let the main session explore your codebase, you're filling the context window with stuff that might not matter. subagents run in separate context. they report back summaries. your main window stays clean.
+
+**the harness matters.** same model in cursor vs claude code behaves differently. the tooling, the prompts, the structure around the model. it matters more than people think.
+
+## the identity shift
+
+there was a talk at south by 2025. the thesis: software engineers are managers now.
+
+i think about this a lot.
+
+your job isn't to write code. your job is to manage agents that write code. could be one agent, could be four. the skill is managing the work.
+
+coding is boring now. coding is easy. what's hard is thinking. actually thinking. shipping a product. shipping a vision.
+
+on time. on scope. no slop.
+
+## where i landed
+
+i built [a workflow](/posts/ai-coding-workflow) around this. user stories, acceptance criteria, plan mode, multi-llm critique, test-first enforcement, vibecheck before commit.
+
+it's not perfect. still iterating.
+
+but it's way better than "just prompt it and pray."
+
+---
+
+the slop era taught me what not to do. claude code gave me a foundation. the rest is discipline.
+
+## related
+
+- [my ai coding workflow](/posts/ai-coding-workflow) - the full system
+- [multi-llm plan critique](/posts/multi-llm-plan-critique) - gemini + codex reviewing plans
+- [test-first enforcement](/posts/test-first-enforcement) - blocking plans without tests
+- [vibecheck](/posts/vibecheck) - auditing implementation against the plan
+- [handoff](/posts/handoff) - context management across sessions

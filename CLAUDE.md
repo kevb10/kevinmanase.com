@@ -12,13 +12,35 @@ Personal blog for Kevin Manase. Engineering thoughts, notes-to-self published pu
 - Domain: kevinmanase.com
 
 ## Writing Style
-- Informal, note-like, messy but not convoluted
-- Not polished or perfect — raw thinking is fine
-- Technical and direct
-- GIFs: yes (Giphy/Tenor URLs inline)
+
+These are notes. Raw thinking published publicly.
+
+### Voice
+- Short sentences. Fragments ok.
+- State things. Don't hedge.
+- Ellipses for trailing thoughts.. casual pauses..
+- Lowercase is fine (experimental)
+- "right?" and "you know?" sparingly, keeps it human
+
+### Formatting
+- Lists over prose
+- Tables for comparisons
+- GIFs: yes (Giphy/Tenor inline)
+- Mermaid diagrams: yes
+- Code snippets: liberally, with real file paths
 - Emojis: no
-- Mermaid diagrams: yes (for workflows, architecture)
-- Code snippets: yes, liberally
+
+### Avoid (AI tells)
+- Em dashes. Use periods or ellipses instead.
+- "actually", "basically", "just", "really"
+- "game-changer", "incredible", "amazing"
+- "I think maybe", "it seems like"
+- Long compound sentences
+- Over-explanation. Show, don't justify.
+
+### Structure
+- "The Problem" then "The Solution"
+- Punchy endings. One line that lands.
 
 ## Content Structure
 Building a series on Kevin's AI coding workflow:
