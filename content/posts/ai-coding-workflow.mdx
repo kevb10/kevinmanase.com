@@ -25,22 +25,7 @@ I wanted a system that catches these before I'm 500 lines deep into the wrong so
 
 ## The Workflow
 
-<Mermaid chart={`
-flowchart TD
-    A[User Story] --> B[Acceptance Criteria]
-    B --> C[Plan with Tests First]
-    C --> D{ExitPlanMode}
-    D --> E[Test-First Check]
-    E -->|Fail| C
-    E -->|Pass| F[Gemini 3 Critique]
-    F --> G[Codex Reviews Gemini]
-    G --> H[Claude Sees Combined Feedback]
-    H --> I[Revise Plan if Needed]
-    I --> J[Implement]
-    J --> K[vibecheck]
-    K -->|Pass| L[Commit]
-    K -->|Fail| J
-`} />
+![AI Coding Workflow - from user story through multi-LLM critique to commit](/diagrams/ai-coding-workflow.svg)
 
 Let me break this down.
 
