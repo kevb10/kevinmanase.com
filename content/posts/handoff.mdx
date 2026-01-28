@@ -428,6 +428,20 @@ simple. the script just reminds you. claude does the actual work.
 4. i see the warning, run `/handoff`
 5. context saved before compact wipes it
 
+### what it looks like
+
+**running `/handoff`:**
+
+![handoff save output](/screenshots/handoff-save.png)
+
+compact summary. shows where the file was saved and what's next.
+
+**starting a fresh session (or `/clear`):**
+
+![handoff auto-loading on session start](/screenshots/handoff-autoload.png)
+
+the hook fires before you type anything. full context restored. this is the magic.
+
 ## v1 vs v2
 
 | Feature | v1 manual | v2 hooks |
