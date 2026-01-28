@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "About",
-  description: "About Kevin Manase - manages agents that write code, writes about making that work.",
+  description: "About Kevin Manase - manages agents that write code, notes on making that work.",
 };
 
 export default function AboutPage() {
@@ -19,13 +19,15 @@ export default function AboutPage() {
         </p>
 
         <p>
-          I learned this the hard way. Mass-produced slop. Shipped fragile code.
-          Watched context windows fill with garbage. Eventually figured out what
-          works.
+          This blog is where I write about software engineering, system design,
+          and whatever I&apos;m learning. It&apos;s primarily a note to myself,
+          but I figured I&apos;d put it out into the world in case it&apos;s useful
+          to someone else.
         </p>
 
         <p>
-          These are notes on making that work. Test-first, vibecheck, no slop.
+          Writing helps me think. When I can&apos;t explain something clearly, it
+          usually means I don&apos;t understand it well enough yet.
         </p>
       </div>
 

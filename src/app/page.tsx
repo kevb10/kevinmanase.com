@@ -12,8 +12,9 @@ export default function Home() {
           Hey, I&apos;m Kevin
         </h1>
         <p className="text-zinc-600 dark:text-zinc-400 leading-relaxed">
-          My job used to be writing code. Now it&apos;s managing agents that write
-          code. These are notes on making that work.
+          I write about building software, system design, and whatever I&apos;m
+          learning. These are notes for myself that I&apos;m putting out into the
+          world.
         </p>
       </section>
 
