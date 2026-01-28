@@ -2,8 +2,17 @@
 title: "building a multi-llm plan critique system for claude code"
 description: "how i built a hook that sends plans through gemini and codex before letting claude implement anything."
 date: "2026-01-10"
-tags: ["claude-code", "hooks", "gemini", "codex", "engineering"]
+created: "2026-01-10"
+updated: "2026-01-28"
+tags: ["claude-code", "hooks", "gemini", "codex", "engineering", "multi-llm"]
 published: true
+changelog:
+  - version: "2"
+    date: "2026-01-28"
+    summary: "Added council planning (parallel brainstorming)"
+  - version: "1"
+    date: "2026-01-10"
+    summary: "Original sequential critique system"
 ---
 
 one model has blind spots. always. i've watched gemini catch architectural issues codex missed, and codex catch edge cases gemini glossed over. when they disagree, that's signal.
@@ -12,7 +21,30 @@ this is a deep dive into how i built a claude code hook that sends plans through
 
 ![planning vibes](https://media.giphy.com/media/3o7btPCcdNniyf0ArS/giphy.gif)
 
-## the goal
+<Updated date="2026-01-28">
+**v2**: this post now covers two approaches. the original sequential critique (reviewers see Claude's finished plan) and the new council system (all models explore in parallel). skip to [council planning](#v2-council-planning) for the new approach.
+</Updated>
+
+## the insight
+
+i was using multiple llms to critique plans. claude writes a plan, then i send it to gemini and codex for review. it works.
+
+but i realized i was doing it wrong.
+
+the problem: reviewers only see the finished plan. they can't offer alternative approaches they might have discovered if they'd explored the problem themselves.
+
+it's like asking someone to review your code after you've already written it. they can spot bugs, but they can't suggest a fundamentally different architecture. that ship has sailed.
+
+**post-critique = code review** (valuable, but late)
+**parallel planning = brainstorming session** (early, diverse perspectives)
+
+both have their place. here's how to build each.
+
+## v1: sequential critique
+
+the original approach. claude plans, then others review.
+
+### the goal
 
 when claude creates an implementation plan, i want:
 
@@ -21,7 +53,7 @@ when claude creates an implementation plan, i want:
 3. **codex second opinion.** what did gemini miss?
 4. **all feedback visible to claude** before implementation starts
 
-## how claude code hooks work
+### how claude code hooks work
 
 hooks are commands that run at specific points in claude's workflow. the one i care about is `PostToolUse`. runs after a tool completes.
 
@@ -48,7 +80,7 @@ in `~/.claude/settings.json`:
 
 this triggers my script whenever claude exits plan mode (i.e., the plan is ready for approval).
 
-## the architecture
+### the architecture
 
 <ThemedImage
   lightSrc="/diagrams/multi-llm-critique-light.png"
@@ -56,9 +88,9 @@ this triggers my script whenever claude exits plan mode (i.e., the plan is ready
   alt="Multi-LLM plan critique workflow showing Claude, Gemini, and Codex phases"
 />
 
-## the hard parts
+### the hard parts
 
-### problem 1: blocking doesn't work with json
+#### problem 1: blocking doesn't work with json
 
 my first attempt returned:
 
@@ -90,7 +122,7 @@ exit 2
 
 exit code 2 signals "hook blocked this action" and stderr content becomes the message claude sees.
 
-### problem 2: background processes are useless
+#### problem 2: background processes are useless
 
 i tried running the llm critiques in the background:
 
@@ -108,7 +140,7 @@ GEMINI_RESULT=$(opencode run -m "openrouter/google/gemini-3-flash-preview" "$PRO
 CODEX_RESULT=$(codex exec --full-auto "$PROMPT")
 ```
 
-### problem 3: plan freshness
+#### problem 3: plan freshness
 
 the hook reads the most recent plan file from `~/.claude/plans/`. but if the user takes too long reviewing, the plan gets "stale" and the hook silently exits:
 
@@ -121,7 +153,7 @@ claude sees "hook succeeded" and proceeds.
 
 **partial fix:** increased timeout to 600s. better fix would be reading from `tool_response.plan` in the hook input instead of relying on file timestamps.
 
-## the code
+### the code
 
 here's the main hook script. it's messy but it works.
 
@@ -202,7 +234,7 @@ jq -n --arg ctx "$FULL_CRITIQUE" '{
 }'
 ```
 
-## what the critiques look like
+### what the critiques look like
 
 here's an actual critique from a recent plan:
 
@@ -218,6 +250,339 @@ here's an actual critique from a recent plan:
 
 they catch different things. that's the point.
 
+## v2: council planning
+
+### the problem with post-plan critique
+
+v1 reviewers only see the finished plan. they can spot flaws in claude's logic, but they can't offer alternative approaches they might have discovered if they'd explored the problem themselves.
+
+it's like asking someone to review your design doc after you've already committed to the architecture. they can poke holes, but the frame is set. they're optimizing within your solution space.
+
+### the insight
+
+what if all three models explored the problem *independently* and *in parallel*?
+
+each model has different:
+- training data
+- biases and blind spots
+- knowledge of libraries and patterns
+
+when they converge on the same approach: **high confidence**.
+when they diverge: **you've found the real design decisions**.
+
+### the architecture
+
+<ThemedImage
+  lightSrc="/diagrams/council-flow-light.png"
+  darkSrc="/diagrams/council-flow-dark.png"
+  alt="Council planning flow showing parallel execution of Claude, Gemini, and Codex"
+/>
+
+### two ways to use it
+
+**1. explicit: `/council` command**
+
+```bash
+/council implement OAuth2 authentication for the API
+```
+
+runs all three models in parallel. claude synthesizes.
+
+**2. automatic: hooks on plan mode**
+
+when claude enters plan mode naturally, hooks fire:
+
+```
+PreToolUse[EnterPlanMode] → start-council.sh
+  - Extracts user's request from transcript
+  - Launches Gemini + Codex in background
+  - They plan while Claude researches
+
+PostToolUse[ExitPlanMode] → collect-council.sh
+  - Waits for background processes (2min timeout)
+  - Injects their plans into Claude's context
+  - Claude sees other perspectives before finalizing
+```
+
+you don't have to do anything. just use plan mode. council happens automatically.
+
+**key insight: non-blocking start, blocking collect.** council starts immediately when planning begins. they work in parallel with claude. when claude finishes, we wait for results.
+
+### the hooks configuration
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "EnterPlanMode",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/start-council.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "ExitPlanMode",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/collect-council.sh",
+            "timeout": 180
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+key details:
+- `PreToolUse` with `matcher: "EnterPlanMode"` fires when claude is about to enter plan mode
+- `PostToolUse` with `matcher: "ExitPlanMode"` fires when claude exits plan mode
+- the collect hook has 180s timeout because we're waiting for background processes
+
+### start-council.sh
+
+```bash
+#!/bin/bash
+set -e
+
+SCRATCH_DIR="$CLAUDE_PROJECT_DIR/thoughts/scratch/council"
+mkdir -p "$SCRATCH_DIR"
+
+# Read hook input from stdin (JSON)
+INPUT=$(cat)
+
+# Get transcript path to extract user's request
+TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path // empty')
+
+if [ -z "$TRANSCRIPT_PATH" ] || [ ! -f "$TRANSCRIPT_PATH" ]; then
+    exit 0
+fi
+
+# Extract last user message from transcript (JSONL format)
+LAST_USER_MSG=$(tac "$TRANSCRIPT_PATH" | grep -m1 '"type":"human"' | jq -r '.message.content // empty')
+
+if [ -z "$LAST_USER_MSG" ]; then
+    exit 0
+fi
+
+# Create council request
+cat > "$SCRATCH_DIR/request.md" << EOF
+# Planning Request
+
+## Task
+$LAST_USER_MSG
+
+## Instructions
+Create a detailed implementation plan. Include:
+1. Approach and rationale
+2. Key files to modify/create
+3. Step-by-step implementation
+4. Potential risks or edge cases
+5. Testing strategy
+EOF
+
+# Launch Gemini in background
+(
+    opencode run --model openrouter/google/gemini-2.5-pro \
+        "$(cat "$SCRATCH_DIR/request.md")" \
+        > "$SCRATCH_DIR/gemini.md" 2>&1
+) &
+echo $! > "$SCRATCH_DIR/gemini.pid"
+
+# Launch Codex in background
+(
+    codex exec \
+        "$(cat "$SCRATCH_DIR/request.md")" \
+        > "$SCRATCH_DIR/codex.md" 2>&1
+) &
+echo $! > "$SCRATCH_DIR/codex.pid"
+
+echo "Council started: Gemini and Codex planning in background"
+exit 0
+```
+
+### collect-council.sh
+
+```bash
+#!/bin/bash
+set -e
+
+SCRATCH_DIR="$CLAUDE_PROJECT_DIR/thoughts/scratch/council"
+
+# Check if council was started
+if [ ! -f "$SCRATCH_DIR/gemini.pid" ]; then
+    exit 0
+fi
+
+# Wait for background processes (with timeout)
+TIMEOUT=120
+WAITED=0
+
+for MODEL in gemini codex; do
+    PID_FILE="$SCRATCH_DIR/$MODEL.pid"
+    if [ -f "$PID_FILE" ]; then
+        PID=$(cat "$PID_FILE")
+        while kill -0 "$PID" 2>/dev/null && [ $WAITED -lt $TIMEOUT ]; do
+            sleep 2
+            WAITED=$((WAITED + 2))
+        done
+        kill -9 "$PID" 2>/dev/null || true
+    fi
+done
+
+# Output council results to Claude's context
+echo ""
+echo "=== COUNCIL RESULTS ==="
+echo ""
+
+if [ -f "$SCRATCH_DIR/gemini.md" ] && [ -s "$SCRATCH_DIR/gemini.md" ]; then
+    echo "### Gemini's Plan"
+    echo ""
+    cat "$SCRATCH_DIR/gemini.md"
+    echo ""
+fi
+
+if [ -f "$SCRATCH_DIR/codex.md" ] && [ -s "$SCRATCH_DIR/codex.md" ]; then
+    echo "### Codex's Plan"
+    echo ""
+    cat "$SCRATCH_DIR/codex.md"
+    echo ""
+fi
+
+echo "=== END COUNCIL ==="
+echo ""
+echo "Consider the above perspectives when finalizing your plan."
+
+# Cleanup
+rm -f "$SCRATCH_DIR/gemini.pid" "$SCRATCH_DIR/codex.pid"
+
+exit 0
+```
+
+### what the output looks like
+
+when claude exits plan mode, it sees something like:
+
+```
+=== COUNCIL RESULTS ===
+
+### Gemini's Plan
+
+1. Use the existing auth middleware pattern from /src/app/core/security.py
+2. Add OAuth provider config to settings.py
+3. Create /src/app/services/oauth.py with provider implementations
+...
+
+### Codex's Plan
+
+1. Implement OAuth flow in a new router /src/app/api/v1/endpoints/oauth.py
+2. Store tokens in the existing Firebase setup
+3. Add rate limiting to prevent abuse
+...
+
+=== END COUNCIL ===
+
+Consider the above perspectives when finalizing your plan.
+```
+
+then claude synthesizes:
+
+> **Agreement (all 3 models):**
+> - Use existing auth middleware pattern
+> - Store tokens in Firebase
+> - Add rate limiting
+>
+> **Gemini's unique insight:**
+> - Suggested abstracting providers for future additions
+>
+> **Codex's unique insight:**
+> - Flagged token refresh race condition
+>
+> **Conflict: Router location**
+> - Gemini: Add to existing auth router
+> - Codex: New dedicated oauth router
+> - Claude: Separate router for clarity
+> - **Recommendation:** New router, but share middleware
+
+### real example: rate limiting
+
+task: "add rate limiting to the API endpoints"
+
+**claude's approach:** middleware-based, redis for distributed state, per-user and per-IP limits.
+
+**gemini's approach:** also middleware, but suggested `slowapi` library and pointed out a recent FastAPI best practice.
+
+**codex's approach:** emphasized different limits for authenticated vs anonymous users, with patterns from popular repos.
+
+the synthesis:
+- all three agreed on middleware placement → high confidence
+- gemini's library suggestion saved reinventing the wheel
+- codex's auth/anon distinction was a blind spot for claude and gemini
+- combined: better than any single model
+
+### graceful degradation
+
+the council is advisory, not blocking. if gemini times out, claude continues. if codex fails, we work with what we have.
+
+```bash
+cat "$SCRATCH_DIR/gemini.md" 2>/dev/null || echo "(No response)"
+```
+
+you don't want planning held hostage by an API hiccup.
+
+### why this matters
+
+1. **diverse perspectives early** — catch bad architecture in planning (minutes) not implementation (days)
+2. **confidence calibration** — three models converge independently = meaningful signal
+3. **unknown unknowns** — each model has different training data, different code exposure. gemini might know a library update. codex might have seen this fail in a thousand repos.
+4. **zero extra effort** — automatic hooks. just use plan mode.
+
+## v1 vs v2: when to use each
+
+| Aspect | v1 Sequential | v2 Council |
+|--------|---------------|------------|
+| Timing | After Claude plans | While Claude plans |
+| Perspective | Review mode | Exploration mode |
+| Best for | Catching bugs, gaps | Architecture decisions |
+| Speed | 20-30s | Same (parallel) |
+| Cost per plan | ~$0.03 | ~$0.03 |
+
+**use v1** for routine plans where you want quality checks.
+
+**use v2** for:
+- architecture decisions with multiple valid approaches
+- exploring unfamiliar territory
+- when you want diverse ideas, not just error-catching
+
+you can run both. v2 during planning, v1 on exit for final validation.
+
+## when to skip council
+
+not everything needs three perspectives:
+
+- **simple changes** — typos, config tweaks, obvious bugs
+- **established patterns** — "add another endpoint like the others"
+- **time-sensitive** — when you need to ship now
+
+use `/council` explicitly for architecture decisions. let automatic hooks handle the rest, but know you can always proceed without waiting.
+
+## the tools
+
+| Model | Command | Cost |
+|-------|---------|------|
+| Claude | Native (already running) | Session cost |
+| Gemini | `opencode run --model openrouter/google/gemini-2.5-pro` | ~$0.01/plan |
+| Codex | `codex exec` | ~$0.02/plan |
+
+total overhead per plan: ~$0.03 and ~30 seconds of parallel execution.
+
 ## what's missing
 
 things i'd improve:
@@ -231,8 +596,10 @@ things i'd improve:
 
 - [my overall ai coding workflow](/posts/the-system)
 - [test-first enforcement](/posts/test-first-enforcement). the validator script
-- the test-first-check.sh script details (coming soon)
+- [handoff](/posts/handoff). managing context across sessions
 
 ---
 
-the hook code lives in my dotfiles. still iterating on it.
+the shift from "critique after" to "brainstorm together" changed how i think about multi-model workflows. it's not about which model is best. it's about what each model knows that the others don't.
+
+three minds, three perspectives, one plan.

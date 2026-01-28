@@ -5,14 +5,23 @@ import readingTime from "reading-time";
 
 const postsDirectory = path.join(process.cwd(), "content/posts");
 
+export interface ChangelogEntry {
+  version: string;
+  date: string;
+  summary: string;
+}
+
 export interface PostMeta {
   slug: string;
   title: string;
   description: string;
   date: string;
+  created?: string;
+  updated?: string;
   tags?: string[];
   readingTime: string;
   published: boolean;
+  changelog?: ChangelogEntry[];
 }
 
 export interface Post extends PostMeta {
@@ -38,9 +47,12 @@ export function getAllPosts(): PostMeta[] {
         title: data.title || slug,
         description: data.description || "",
         date: data.date || new Date().toISOString(),
+        created: data.created,
+        updated: data.updated,
         tags: data.tags || [],
         readingTime: readingTime(content).text,
         published: data.published !== false,
+        changelog: data.changelog,
       };
     })
     .filter((post) => post.published)
@@ -64,9 +76,12 @@ export function getPostBySlug(slug: string): Post | null {
     title: data.title || slug,
     description: data.description || "",
     date: data.date || new Date().toISOString(),
+    created: data.created,
+    updated: data.updated,
     tags: data.tags || [],
     readingTime: readingTime(content).text,
     published: data.published !== false,
+    changelog: data.changelog,
     content,
   };
 }

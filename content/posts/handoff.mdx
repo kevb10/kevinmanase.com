@@ -2,13 +2,67 @@
 title: "handoff: the deliberate context reset"
 description: "when your ai coding assistant's context window fills up, it's already too late. the /handoff slash command creates a structured HANDOFF.md file. a compass for the next fresh session."
 date: "2026-01-27"
-tags: ["claude-code", "ai-coding", "context-management", "slash-commands", "ai-agents", "developer-tools", "workflow", "llm", "coding-assistant"]
+created: "2026-01-27"
+updated: "2026-01-28"
+tags: ["claude-code", "ai-coding", "context-management", "slash-commands", "ai-agents", "developer-tools", "workflow", "llm", "coding-assistant", "hooks"]
 published: true
+changelog:
+  - version: "2"
+    date: "2026-01-28"
+    summary: "Added hooks automation, thoughts/ directory structure"
+  - version: "1"
+    date: "2026-01-27"
+    summary: "Original manual /handoff command"
 ---
 
 part of [my ai coding workflow](/posts/the-system). this is how i manage context across sessions without losing momentum.
 
 ![passing the baton](https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExdWI2cm84bXg0MDMxdGVvM28wOHkyYjlsbXowam5xN2gzcHV5MnV5ciZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/glqdZPHSpcMNTbhCxs/giphy.gif)
+
+<Updated date="2026-01-28">
+**v2**: this post now covers automated handoffs using Claude Code hooks. the manual approach still works, but hooks make it seamless. skip to [the automated way](#v2-the-automated-way) if you want the new hotness.
+</Updated>
+
+before building this, i tested three approaches to session continuity:
+
+1. **claude's built-in `/compact`** - summarizes conversation in-memory
+2. **[humanlayer's](https://humanlayer.dev) `/resume_handoff`** - comprehensive ticket-based handoff system
+3. **our custom `/handoff`** - lightweight file-based handoffs with hooks
+
+our approach won. here's why.
+
+## the comparison
+
+| Approach | Persistence | Auto-load | Validation | Task Sync | Complexity |
+|----------|-------------|-----------|------------|-----------|------------|
+| `/compact` | In-memory | N/A | None | No | None |
+| HumanLayer | File | Via CLI | Heavy | TodoWrite | High |
+| **Ours** | File | Via hooks | Light | TaskList | Medium |
+
+### `/compact` (6/10)
+
+claude's built-in summarization. great for mid-session context management when you're hitting the context window limit.
+
+**the problem:** it's ephemeral. gone when you close the terminal. no cross-session continuity. you start tomorrow re-explaining everything.
+
+### humanlayer's `/resume_handoff` (7/10)
+
+impressive system from [humanlayer.dev](https://humanlayer.dev). ticket-based organization (`ENG-XXXX`), parallel verification tasks, heavy state validation, TodoWrite integration.
+
+**the problem:** requires their CLI (`humanlayer thoughts sync`). assumes enterprise workflows with ticket systems. the validation process is multi-step and heavy. overkill for solo/small team projects.
+
+### our `/handoff` + `/resume` (8/10)
+
+the sweet spot:
+- **persistent files** - survives session boundaries
+- **native hooks** - no external CLI dependencies
+- **TaskList integration** - works with Claude Code's task system
+- **light validation** - checks state without blocking
+- **brief by design** - "compass, not novel" (~100-150 lines)
+
+we borrowed the `thoughts/` directory structure from humanlayer (great idea) and kept everything else native to claude code.
+
+---
 
 ## context is king
 
@@ -52,17 +106,17 @@ worse: you don't notice until you hit a wall. "wait, we already discussed this" 
 
 ## the solution: deliberate handoff
 
-instead of letting context degrade, i create a deliberate checkpoint. the `/handoff` command generates a `HANDOFF.md` file. a compass for the next fresh session.
+instead of letting context degrade, i create a deliberate checkpoint. the `/handoff` command generates a handoff file. a compass for the next fresh session.
 
 it's not a transcript. it's not a summary. it's **actionable context**. exactly what the next session needs to continue the work.
 
 <Mermaid chart={`
 flowchart LR
     A["Session 1<br/>(90k tokens)"] --> B["/handoff"]
-    B --> C["HANDOFF.md"]
+    B --> C["handoff file"]
     C --> D["/clear"]
     D --> E["Fresh Session<br/>(0 tokens)"]
-    E --> F["Read HANDOFF.md"]
+    E --> F["Read handoff"]
     F --> G["Continue work"]
 `} />
 
@@ -167,9 +221,9 @@ i use `/handoff` when:
 
 the goal is to handoff while you still have good context, not after it's degraded.
 
-## the command
+## v1: the manual way
 
-it lives at `.claude/commands/handoff.md`:
+the original `/handoff` command lives at `.claude/commands/handoff.md`:
 
 ```markdown
 # Handoff
@@ -204,20 +258,200 @@ Create or update `HANDOFF.md` at the repo root with a brief compass:
 
 the key instruction: "this is a compass, not a novel."
 
-## starting the next session
+this works. but it has a fatal flaw: you have to remember to use it. and i never did. sessions would end, context would vanish, and i'd start the next day re-explaining the same architecture decisions.
 
-the handoff ends with a one-liner:
+## v2: the automated way
+
+the fix: Claude Code hooks. three events you can tap into:
+
+| Hook | When It Fires |
+|------|---------------|
+| `SessionStart` | When you run `claude` |
+| `SessionEnd` | When you exit (Ctrl+C, `/exit`) |
+| `PreCompact` | Before auto-compact triggers |
+
+hooks run shell scripts. they can output text that claude sees. but here's the key insight: **hooks can't access conversation context**. they're just shell scripts.
+
+so the architecture is:
+- **hooks** handle automation (triggers, reminders, loading files)
+- **claude** generates the actual handoff content via `/handoff`
+
+### the thoughts/ directory
 
 ```
-Read HANDOFF.md then add reason and raw_text fields to SIGNALS edge
+thoughts/
+├── CURRENT.md          # Symlink to active handoff
+├── handoffs/           # Timestamped handoff files
+│   ├── 2026-01-28-signal-migration.md
+│   └── 2026-01-27-hds-refactor.md
+├── plans/              # Implementation plans
+├── research/           # Research notes
+└── scratch/            # Temporary files (gitignored)
 ```
 
-paste that into a fresh session. claude reads the handoff, immediately has context, and starts on the exact task. no warmup, no re-explaining, no "let me understand what you're working on."
+the `CURRENT.md` symlink is the magic. it points to whatever you're working on. hooks check this file.
 
-the fresh session has:
-- clean context window (no pollution)
-- perfect starting knowledge (from HANDOFF.md)
-- clear direction (the one-liner task)
+why a whole directory structure?
+
+**handoffs/** - timestamped snapshots. you can grep through old ones when you forget how you solved something three weeks ago.
+
+**plans/** - longer implementation plans that span multiple sessions. the handoff references the plan, doesn't duplicate it.
+
+**research/** - notes from exploring APIs, reading docs. context that's useful but too verbose for a handoff.
+
+**scratch/** - gitignored. temporary files, test outputs.
+
+### the hooks configuration
+
+in `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/load-handoff.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/save-handoff.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/save-handoff.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### load-handoff.sh
+
+```bash
+#!/bin/bash
+set -e
+
+THOUGHTS_DIR="$CLAUDE_PROJECT_DIR/thoughts"
+CURRENT_HANDOFF="$THOUGHTS_DIR/CURRENT.md"
+
+# Check for CURRENT.md symlink/file first
+if [ -f "$CURRENT_HANDOFF" ]; then
+    # Only show if less than 24 hours old
+    if [ "$(uname)" = "Darwin" ]; then
+        FILE_AGE=$(( $(date +%s) - $(stat -f %m "$CURRENT_HANDOFF") ))
+    else
+        FILE_AGE=$(( $(date +%s) - $(stat -c %Y "$CURRENT_HANDOFF") ))
+    fi
+
+    # 86400 seconds = 24 hours
+    if [ "$FILE_AGE" -lt 86400 ]; then
+        echo "=== RESUMING FROM HANDOFF ==="
+        echo ""
+        cat "$CURRENT_HANDOFF"
+        echo ""
+        echo "=== END HANDOFF ==="
+        exit 0
+    fi
+fi
+
+# No recent handoff - silent start
+exit 0
+```
+
+### save-handoff.sh
+
+```bash
+#!/bin/bash
+
+echo ""
+echo "=== SESSION ENDING ==="
+echo "If you have important context, run /handoff before exiting."
+echo "This will save your context to thoughts/CURRENT.md"
+echo ""
+```
+
+simple. the script just reminds you. claude does the actual work.
+
+### how it works end-to-end
+
+**session 1: working on signal migration**
+1. do work for 2 hours
+2. get tired, run `/handoff`
+3. claude creates `thoughts/handoffs/2026-01-28_14-30_signal-migration.md`
+4. claude symlinks to `thoughts/CURRENT.md`
+5. exit session
+
+**session 2: next morning**
+1. run `claude` in the project
+2. `load-handoff.sh` fires, outputs the handoff content
+3. claude sees: "=== RESUMING FROM HANDOFF ===" + full context
+4. claude reads the context, picks up where we left off
+5. first message: "I see we were migrating signals to Firestore. Want to continue?"
+
+**session 3: forgot to handoff, auto-compact triggers**
+1. working for a while, context gets long
+2. claude's auto-compact is about to trigger
+3. `save-handoff.sh` fires: "If you have important context, run /handoff before exiting"
+4. i see the warning, run `/handoff`
+5. context saved before compact wipes it
+
+## v1 vs v2
+
+| Feature | v1 manual | v2 hooks |
+|---------|-----------|----------|
+| Persistence | File | File |
+| Cross-session | Yes | Yes |
+| Auto-load | No | Yes |
+| Reminder before exit | No | Yes |
+| PreCompact warning | No | Yes |
+| Directory structure | Single file | thoughts/ |
+
+v1 works but requires discipline. v2 is the same thing, automated.
+
+## try it
+
+### v1 (manual)
+
+1. add the `/handoff` command to `.claude/commands/handoff.md`
+2. run `/handoff` before ending sessions
+3. start new sessions with "Read HANDOFF.md then [task]"
+
+### v2 (automated)
+
+1. create the directory structure:
+```bash
+mkdir -p thoughts/{handoffs,plans,research,scratch}
+echo "*" > thoughts/scratch/.gitignore
+echo "!.gitignore" >> thoughts/scratch/.gitignore
+```
+
+2. add hooks to `.claude/settings.json` (see above)
+
+3. create the hook scripts in `.claude/hooks/`
+
+4. update `/handoff` command to write to `thoughts/handoffs/` and symlink `CURRENT.md`
+
+5. actually use it. the hooks will remind you.
 
 ## the mental model
 
@@ -236,5 +470,7 @@ the context window isn't a limitation to fight against. it's a signal to work wi
 - [multi-llm plan critique](/posts/multi-llm-plan-critique). pre-implementation validation
 
 ---
+
+the difference between "i should do this" and "this happens automatically" is the difference between good intentions and actual behavior change. hooks bridge that gap.
 
 context is king. but a king that's exhausted and confused isn't ruling anything. give your next session a fresh start with perfect context. that's the handoff.

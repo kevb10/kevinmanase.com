@@ -6,6 +6,7 @@ import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
 import { getPostBySlug, getAllPostSlugs } from "@/lib/posts";
 import { mdxComponents } from "@/components/mdx-components";
+import { VersionHistory } from "@/components/version-history";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -69,8 +70,8 @@ export default async function PostPage({ params }: Props) {
       name: "Kevin Manase",
       url: "https://kevinmanase.com/about",
     },
-    datePublished: post.date,
-    dateModified: post.date,
+    datePublished: post.created || post.date,
+    dateModified: post.updated || post.date,
     publisher: {
       "@type": "Person",
       name: "Kevin Manase",
@@ -108,6 +109,12 @@ export default async function PostPage({ params }: Props) {
           <span>{post.readingTime}</span>
         </div>
       </header>
+
+      <VersionHistory
+        created={post.created}
+        updated={post.updated}
+        changelog={post.changelog}
+      />
 
       <div className="prose-custom">
         <MDXRemote
