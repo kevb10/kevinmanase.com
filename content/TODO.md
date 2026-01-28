@@ -3,7 +3,7 @@
 ## Published
 
 - [x] **Hello World** — `/posts/hello-world` — Intro post, why I'm writing
-- [x] **AI Coding Workflow Overview** — `/posts/ai-coding-workflow` — The full system, hub for deep dives
+- [x] **AI Coding Workflow Overview** — `/posts/the-system` — The full system, hub for deep dives
 - [x] **Multi-LLM Plan Critique** — `/posts/multi-llm-plan-critique` — Gemini + Codex hook system
 - [x] **Test-First Enforcement** — `/posts/test-first-enforcement` — Bash validator, blocking plans without tests
 - [x] **CBC Acceptance Criteria** — `/posts/cbc-acceptance-criteria` — Context-Behavior-Constraint format for testable AC

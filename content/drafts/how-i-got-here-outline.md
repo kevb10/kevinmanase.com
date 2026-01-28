@@ -65,7 +65,7 @@
 - On time, on scope, no slop.
 
 ### 7. Where I Landed
-- Link to the [AI Coding Workflow Overview](/posts/ai-coding-workflow)
+- Link to the [AI Coding Workflow Overview](/posts/the-system)
 - "This is my current system. It's not perfect, still iterating."
 
 ---
