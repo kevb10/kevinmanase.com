@@ -7,6 +7,9 @@ updated: "2026-01-28"
 tags: ["claude-code", "ai-coding", "context-management", "slash-commands", "ai-agents", "developer-tools", "workflow", "llm", "coding-assistant", "hooks"]
 published: true
 changelog:
+  - version: "2.1"
+    date: "2026-01-28"
+    summary: "Added approach comparison rationale (why ours won)"
   - version: "2"
     date: "2026-01-28"
     summary: "Added hooks automation, thoughts/ directory structure"
@@ -59,8 +62,18 @@ the sweet spot:
 - **TaskList integration** - works with Claude Code's task system
 - **light validation** - checks state without blocking
 - **brief by design** - "compass, not novel" (~100-150 lines)
+- **git-aware** - gathers actual repo state (branch, recent commits, changed files)
+- **human-readable** - review/edit before next session
 
 we borrowed the `thoughts/` directory structure from humanlayer (great idea) and kept everything else native to claude code.
+
+### why ours won
+
+1. **light enough to actually use** — heavy systems get abandoned
+2. **structured enough to be useful** — template ensures nothing critical is missed
+3. **persistent without infrastructure** — just files, no external services
+4. **git-aware and project-specific** — knows about branches, commits, changed files
+5. **native to claude code** — uses hooks, TaskList, no external dependencies
 
 ---
 

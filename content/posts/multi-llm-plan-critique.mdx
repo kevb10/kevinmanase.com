@@ -7,6 +7,9 @@ updated: "2026-01-28"
 tags: ["claude-code", "hooks", "gemini", "codex", "engineering", "multi-llm"]
 published: true
 changelog:
+  - version: "2.1"
+    date: "2026-01-28"
+    summary: "Added auto-save to thoughts/research/, prompted save to plans/"
   - version: "2"
     date: "2026-01-28"
     summary: "Added council planning (parallel brainstorming)"
@@ -415,6 +418,7 @@ exit 0
 set -e
 
 SCRATCH_DIR="$CLAUDE_PROJECT_DIR/thoughts/scratch/council"
+RESEARCH_DIR="$CLAUDE_PROJECT_DIR/thoughts/research"
 
 # Check if council was started
 if [ ! -f "$SCRATCH_DIR/gemini.pid" ]; then
@@ -436,6 +440,16 @@ for MODEL in gemini codex; do
         kill -9 "$PID" 2>/dev/null || true
     fi
 done
+
+# Auto-save raw perspectives to research/ for future reference
+mkdir -p "$RESEARCH_DIR"
+TIMESTAMP=$(date +%Y-%m-%d_%H-%M)
+if [ -f "$SCRATCH_DIR/gemini.md" ] && [ -s "$SCRATCH_DIR/gemini.md" ]; then
+    cp "$SCRATCH_DIR/gemini.md" "$RESEARCH_DIR/${TIMESTAMP}_gemini.md"
+fi
+if [ -f "$SCRATCH_DIR/codex.md" ] && [ -s "$SCRATCH_DIR/codex.md" ]; then
+    cp "$SCRATCH_DIR/codex.md" "$RESEARCH_DIR/${TIMESTAMP}_codex.md"
+fi
 
 # Output council results to Claude's context
 echo ""
@@ -459,12 +473,15 @@ fi
 echo "=== END COUNCIL ==="
 echo ""
 echo "Consider the above perspectives when finalizing your plan."
+echo "Save the synthesized plan to thoughts/plans/ for future reference."
 
 # Cleanup
 rm -f "$SCRATCH_DIR/gemini.pid" "$SCRATCH_DIR/codex.pid"
 
 exit 0
 ```
+
+the hook auto-saves raw council output to `thoughts/research/` with timestamps. you can grep through old perspectives when you forget why you rejected an approach three weeks ago.
 
 ### what the output looks like
 

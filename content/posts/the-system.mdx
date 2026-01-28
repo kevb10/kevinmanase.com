@@ -7,6 +7,9 @@ updated: "2026-01-28"
 tags: ["ai", "workflow", "claude-code", "engineering"]
 published: true
 changelog:
+  - version: "2.1"
+    date: "2026-01-28"
+    summary: "Added thoughts/ directory structure and automation table"
   - version: "2"
     date: "2026-01-28"
     summary: "Added council planning, hooks automation for handoffs"
@@ -118,6 +121,29 @@ without these, you're just hoping the ai does what you want.
 - **opencode + gemini 3**. architectural critique via openrouter
 - **codex cli**. second opinion on plans
 - **claude code hooks**. the glue that enforces all this
+
+## the directory structure
+
+all persistent context lives in `thoughts/`:
+
+```
+thoughts/
+├── CURRENT.md          # Symlink to active handoff (auto-loaded on start)
+├── handoffs/           # Timestamped session handoffs (via /handoff)
+├── plans/              # Implementation plans (save after council synthesis)
+├── research/           # Raw council perspectives (auto-saved)
+└── scratch/            # Temporary files (gitignored)
+```
+
+| Folder | Populated By | Automatic? |
+|--------|--------------|------------|
+| `research/` | `collect-council.sh` hook | yes |
+| `plans/` | Claude after synthesis | prompted |
+| `handoffs/` | `/handoff` command | manual |
+| `scratch/` | Council hooks | auto-cleaned |
+| `CURRENT.md` | `/handoff` command | auto-linked |
+
+the key insight: `research/` is fully automatic. `plans/` requires claude to save after synthesizing (the hook prompts this). `handoffs/` requires you to run `/handoff`.
 
 ## what's next
 
