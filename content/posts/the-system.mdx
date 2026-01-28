@@ -2,8 +2,17 @@
 title: "the system"
 description: "my workflow for coding with claude, gemini, and codex. user stories, multi-llm plan critique, test-first enforcement, and staying on course."
 date: "2026-01-06"
+created: "2026-01-06"
+updated: "2026-01-28"
 tags: ["ai", "workflow", "claude-code", "engineering"]
 published: true
+changelog:
+  - version: "2"
+    date: "2026-01-28"
+    summary: "Added council planning, hooks automation for handoffs"
+  - version: "1"
+    date: "2026-01-06"
+    summary: "Original workflow overview"
 ---
 
 i've mass-produced slop. watched context windows fill with garbage. let ai drift into gold-plating while i nodded along. shipped a product that was fragile and slow because the codebase was already polluted by the time i knew better.
@@ -72,6 +81,8 @@ when i approve a plan in claude code, a [PostToolUse hook](/posts/multi-llm-plan
 
 why multiple models? they have different blind spots. gemini might catch an architectural issue, codex might notice a missing edge case. i've seen them disagree. that's valuable signal.
 
+**update:** i've since evolved this into [council planning](/posts/multi-llm-plan-critique#v2-council-planning). instead of reviewing claude's finished plan, all three models explore the problem *in parallel*. when they converge, high confidence. when they diverge, you've found the real design decisions.
+
 ### 5. implement
 
 now claude implements with full context:
@@ -116,7 +127,7 @@ i'm writing deeper dives on each piece:
 - [multi-llm plan critique](/posts/multi-llm-plan-critique). the hook system in detail
 - [test-first enforcement](/posts/test-first-enforcement). how to block plans without tests
 - [vibecheck](/posts/vibecheck). staying on course
-- [handoff](/posts/handoff). deliberate context reset before sessions degrade
+- [handoff](/posts/handoff). deliberate context reset with hooks automation
 
 this workflow isn't perfect and i'm still iterating. but it's way better than "just prompt it and pray."
 
