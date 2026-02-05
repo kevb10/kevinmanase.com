@@ -1,0 +1,209 @@
+---
+title: "root cause vs symptom"
+description: "ai will fix symptoms in 5 minutes. getting it to find root causes takes a different approach."
+date: "2026-02-05"
+tags: ["ai-coding", "debugging", "claude-code"]
+published: true
+---
+
+i asked claude to fix a ranking bug. it wrote a backfill script and declared victory in 5 minutes.
+
+i pushed back: "did you find the root cause or the symptom?"
+
+the next day, it made the same mistake again.
+
+## story 1: missing graph edges
+
+ranking algorithm showing `score=0` for favorited items.
+
+database A: 9 favorites.
+database B: 1 graph edge.
+
+claude investigated for 5 minutes:
+
+> found the issue. database A has 9 favorites but database B only has 1 edge. here's a backfill script to create the 9 missing edges.. done. it's working now!
+
+fast. confident. wrong.
+
+### the pushback
+
+> **me:** "did you find the root cause or the symptom."
+
+### claude admits
+
+> you're right. i found the symptom (missing edges), not the root cause (why they weren't being created).
+>
+> the backfill fixed historical data, but if the root cause isn't fixed, new favorites will still fail silently.
+
+key moment. ai optimizes for speed. you have to force depth.
+
+### finding the root
+
+> **me:** "spin up research subagents to find the root"
+
+four parallel agents launched:
+1. code path tracer - where could execution skip?
+2. git history - when was this feature added?
+3. configuration audit - what happens when env vars are missing?
+4. pattern detector - how many places have this anti-pattern?
+
+fifteen minutes later:
+
+```python
+# deps.py - returns None if GRAPH_URI not set
+def get_graph_provider() -> GraphProvider | None:
+    if not settings.graph_uri:
+        return None  # silent skip, no error
+
+# service.py - graph writes skipped if provider is None
+if self._graph:
+    # ... create edge
+# no else, no logging, no error
+# API returns 201 Created anyway
+```
+
+timeline from git:
+- jan 30: first 6 favorites created
+- jan 31: graph integration deployed
+- feb 3: 2 more favorites created
+
+all 9 favorites were created when server was running **without `GRAPH_URI` configured.**
+
+the pattern: "graceful degradation" by design. app could run without graph database.
+
+but:
+- no warning when graph disabled
+- no error when operations skipped
+- API returned success when graph sync failed
+
+### the fix
+
+changed to fail-fast:
+
+```python
+def get_graph_provider() -> GraphProvider:
+    if not settings.graph_uri:
+        raise GraphNotConfiguredError(
+            "GRAPH_URI required for ranking, recommendations"
+        )
+```
+
+server won't start without graph config. no silent failures.
+
+## story 2: the next day
+
+blend endpoint returning `signals_used=0`.
+
+claude investigated:
+- neo4j has edges with plain UUIDs: `"abc-123"`
+- blend queries for prefixed keys: `"place:abc-123"`
+- no matches found
+
+the "fix": add `place:` prefixes to storage, delete old edges, recreate.
+
+result: `signals_used=2` ✅
+
+### the pushback
+
+> **me:** "that is false. `place:` is outdated. find root cause"
+
+### the actual root cause
+
+the codebase **migrated away from prefixes on feb 4** (the day i wrote this post).
+
+the migration:
+- removed `place:`, `book:` prefixes from all graph operations
+- updated signal creation to use plain UUIDs
+- cleaned up 1,160 duplicate prefixed nodes
+- **but never updated `blend.py`** - still had prefix logic from jan 28
+
+claude had the timeline backwards. the "fix" was reinstating a deprecated pattern.
+
+### what went wrong
+
+stale pattern recognition. saw prefix format, assumed it was current.
+
+first answer bias. found mismatch, "fixed" it, stopped.
+
+confirmation bias. test returned non-zero, must be correct.
+
+the parallel research agents found the truth:
+- all production code uses plain UUIDs since feb 4
+- git history shows explicit migration with ADR
+- only `blend.py` had old prefix logic
+- storage was correct, query was wrong
+
+### the pattern
+
+ai finds mismatch between A and B.
+ai "fixes" by making A match B.
+**didn't verify: is B actually correct?**
+
+assumption: "if code has prefixes somewhere, prefixes must be standard."
+reality: "those prefixes are legacy fossils."
+
+## the meta-lesson
+
+even after documenting this failure mode, repeated it the next day.
+
+why? because "i knew" the answer. debug output showed prefixed edges (from my own backfill), confirming my theory.
+
+the fix wasn't to add prefixes to storage. it was to remove prefix logic from queries.
+
+## stale code is poison
+
+the real problem was stale code in `blend.py` that never got updated during migration.
+
+that 9-line function adding prefixes was toxic:
+- made deprecated pattern look intentional
+- gave false confidence ("the code does this, so this must be right")
+- caused regression (blend broke after migration)
+- will confuse every future developer
+
+stale code doesn't sit there harmlessly. it actively misleads.
+
+when you migrate a pattern, grep for the old pattern and remove it everywhere. leaving fossils creates regressions.
+
+## how to actually prevent this
+
+when ai declares victory, ask two questions:
+
+**"did you find the root cause or the symptom?"**
+
+**"what assumptions are you making? how did you verify those?"**
+
+red flags that ai fixed the symptom:
+- "this should work now"
+- "i backfilled the missing data"
+- "the code looks correct when i test it"
+- no explanation of WHY problem happened
+
+signs they found the root cause:
+- timeline correlation (when did bug appear vs code changes)
+- pattern identified (design flaw, not data gap)
+- systemic fix proposed (code change, not data fix)
+- assumptions verified (checked git history, ADRs, migration dates)
+
+## the process
+
+1. ai suggests quick fix
+2. ask: "root cause or symptom?"
+3. ask: "what assumptions? how verified?"
+4. demand: "research the root"
+5. wait for: timeline, pattern, systemic fix
+
+## time investment
+
+symptom fix: 5 minutes.
+root cause: 15 minutes.
+future debugging sessions prevented: infinite.
+
+## the questions
+
+"did you find the root cause or the symptom?"
+
+"what assumptions are you making? how did you verify those assumptions?"
+
+two questions that change how ai debugs.
+
+try them next time your pair programmer declares victory too fast.

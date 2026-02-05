@@ -31,6 +31,7 @@
 - [ ] **Test-First vs Test-After with AI** — Does TDD still matter when AI writes code?
 - [ ] **Code Review When AI Writes Code** — What to look for, what's different
 - [ ] **Prompting is Not Engineering** — Why workflow matters more than prompts
+- [ ] **Root Cause vs Symptom: A Debugging Story** — When AI fixes the symptom but misses the cause → See `notes/root-cause-vs-symptom-debugging.md`
 
 ### Tools
 - [ ] **OpenCode + OpenRouter** — Running Gemini from the terminal
