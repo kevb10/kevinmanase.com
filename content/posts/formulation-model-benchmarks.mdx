@@ -23,7 +23,7 @@ flowchart LR
     D -->|"timeout"| F["fail"]
 ```
 
-a task comes in from a backlog. a **formulation model** reads it and writes a detailed instruction — what to build, which files, what success looks like. then claude code executes that instruction. same executor every time.
+a task comes in from a backlog. a **formulation model** reads it and writes a detailed instruction. what to build, which files, what success looks like. then claude code executes that instruction. same executor every time.
 
 the question: which formulation model actually produces instructions that lead to working code?
 
@@ -73,7 +73,7 @@ top 3 clustered at 77-83%. then a gap. then the bottom half.
 
 ## why kimi failed
 
-this is the interesting part. kimi isn't dumb — it's too ambitious.
+this is the interesting part. kimi isn't dumb. it's too ambitious.
 
 here's what kimi would formulate:
 
@@ -85,7 +85,7 @@ meanwhile minimax would write:
 
 done in 60 seconds.
 
-**over-specification kills.** claude code is smart enough to figure out details — it needs direction and a realistic scope, not a research paper. the bigger thinking models need room to breathe. kimi's formulations were genuinely thoughtful but the scope was too large for a single execution cycle.
+**over-specification kills.** claude code is smart enough to figure out details. it needs direction and a realistic scope, not a research paper. the bigger thinking models need room to breathe. kimi's formulations were genuinely thoughtful but the scope was too large for a single execution cycle.
 
 ## qwen3.5-plus vs qwen3-coder-next
 
