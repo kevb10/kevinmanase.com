@@ -1,5 +1,5 @@
 ---
-title: "i ran my own llm benchmarks (52 cycles, 6 models)"
+title: "i ran my own llm benchmarks (52 cycles, 5 models)"
 description: "instead of trusting leaderboards, i a/b tested free openrouter models on real coding tasks. here's what actually works."
 date: "2026-02-17"
 tags: ["llm", "benchmarks", "openrouter", "engineering"]
@@ -16,11 +16,11 @@ i have an autonomous coding loop. the short version:
 
 <Mermaid chart={`
 flowchart LR
-    A[task] --> B[formulation LLM]
-    B -->|instruction| C[claude code]
-    C --> D{done?}
-    D -->|yes| E[commit]
-    D -->|timeout| F[fail]
+    A["task"] --> B["formulation LLM"]
+    B -->|"instruction"| C["claude code"]
+    C --> D["done?"]
+    D -->|"yes"| E["commit"]
+    D -->|"timeout"| F["fail"]
 `} />
 
 a task comes in from a backlog. a **formulation model** reads it and writes a detailed instruction — what to build, which files, what success looks like. then claude code executes that instruction. same executor every time.
@@ -29,7 +29,7 @@ the question: which formulation model actually produces instructions that lead t
 
 ## the test
 
-6 free models on openrouter, randomly assigned per cycle:
+5 free/open models on openrouter, randomly assigned per cycle:
 
 ```
 minimax/minimax-m2.5
@@ -37,10 +37,9 @@ z-ai/glm-5
 qwen/qwen3-coder-next
 qwen/qwen3.5-plus-02-15
 moonshotai/kimi-k2.5
-google/gemini-2.5-flash-preview
 ```
 
-success = claude code finishes within 300 seconds, tests pass, files created. failure = timeout, crash, or incomplete.
+success = claude code finishes the task, tests pass, files created. failure = incomplete work or errors.
 
 52 active cycles.
 
@@ -53,7 +52,6 @@ success = claude code finishes within 300 seconds, tests pass, files created. fa
 | qwen/qwen3-coder-next | 13 | 10 | **76.9%** |
 | qwen/qwen3.5-plus-02-15 | 6 | 3 | 50.0% |
 | moonshotai/kimi-k2.5 | 7 | 3 | 42.9% |
-| google/gemini-2.5-flash | 2 | 1 | 50.0% |
 
 from the validation report i built to track this:
 
@@ -69,7 +67,6 @@ from the validation report i built to track this:
   qwen/qwen3-coder-next                          13       10    76.9%
   qwen/qwen3.5-plus-02-15                         6        3    50.0%
   moonshotai/kimi-k2.5                             7        3    42.9%
-  google/gemini-2.5-flash                          2        1    50.0%
 ```
 
 top 3 clustered at 77-83%. then a gap. then the bottom half.
@@ -82,15 +79,13 @@ here's what kimi would formulate:
 
 > "implement a fisher's exact test for statistical significance, build a comprehensive a/b validation framework with multiple dimensions of analysis, add cosine similarity for behavioral drift detection..."
 
-claude code would start building this, burn through 300 seconds of tool calls, and timeout. 64 tools used, zero files committed.
-
 meanwhile minimax would write:
 
 > "add these fields to metrics.py. update the report. write tests. run pytest."
 
 done in 60 seconds.
 
-**over-specification kills.** claude code is smart enough to figure out details — it needs direction and a realistic scope, not a research paper.
+**over-specification kills.** claude code is smart enough to figure out details — it needs direction and a realistic scope, not a research paper. the bigger thinking models need room to breathe. kimi's formulations were genuinely thoughtful but the scope was too large for a single execution cycle.
 
 ## qwen3.5-plus vs qwen3-coder-next
 
@@ -103,7 +98,7 @@ trimmed to the top 3:
 ```python
 # tested via a/b (2026-02-17, 52 cycles).
 # top 3: minimax 83%, glm-5 78%, qwen3-coder 77%.
-# dropped: kimi (43%), qwen3.5-plus (50%), gemini-flash (50%).
+# dropped: kimi (43%), qwen3.5-plus (50%).
 DEFAULT_FORMULATION_MODELS = [
     "minimax/minimax-m2.5",
     "z-ai/glm-5",
@@ -124,9 +119,8 @@ my-loop --autonomy --model z-ai/glm-5 --model qwen/qwen3-coder-next
 ## limitations
 
 - sample sizes are small. 6-13 cycles per model. directional, not statistically significant.
-- gemini only got 2 cycles before i pulled it. can't judge that.
 - all cycles ran against the same task pool. different tasks might shuffle the rankings.
-- the executor timeout (300s) punishes ambitious formulations. if i bumped it to 600s, kimi might climb.
+- the bigger thinking models might perform better with longer execution windows or multi-step task decomposition. this test measured single-shot formulation quality only.
 
 ## the point
 
