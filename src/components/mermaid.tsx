@@ -40,7 +40,7 @@ export function Mermaid({ chart }: MermaidProps) {
 
   useEffect(() => {
     const renderChart = async () => {
-      if (!containerRef.current) return;
+      if (!containerRef.current || !chart) return;
 
       try {
         const id = `mermaid-${Math.random().toString(36).substr(2, 9)}`;

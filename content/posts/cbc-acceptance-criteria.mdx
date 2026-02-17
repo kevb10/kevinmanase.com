@@ -25,7 +25,7 @@ so i made my own format. **context-behavior-constraint (CBC)**. structured for h
 
 the insight: tests have a natural structure. **arrange-act-assert**. acceptance criteria should mirror that.
 
-<Mermaid chart={`
+```mermaid
 flowchart LR
     subgraph AC["Acceptance Criteria"]
         A[Context] --> B[Behavior] --> C[Constraints]
@@ -36,7 +36,7 @@ flowchart LR
     A -.-> D
     B -.-> E
     C -.-> F
-`} />
+```
 
 ## the format
 

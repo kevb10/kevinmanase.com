@@ -1,4 +1,5 @@
 import type { MDXComponents } from "mdx/types";
+import { Children, isValidElement, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Mermaid } from "./mermaid";
@@ -6,8 +7,16 @@ import { CodeBlock } from "./code-block";
 import { ThemedImage } from "./themed-image";
 import { Updated } from "./updated";
 
+function extractText(node: ReactNode): string {
+  if (typeof node === "string") return node;
+  if (typeof node === "number") return String(node);
+  if (!node) return "";
+  if (isValidElement(node)) return extractText((node.props as { children?: ReactNode }).children);
+  if (Array.isArray(node)) return Children.map(node, extractText)?.join("") ?? "";
+  return "";
+}
+
 export const mdxComponents: MDXComponents = {
-  Mermaid,
   ThemedImage,
   Updated,
   h1: ({ children, id }) => (
@@ -80,7 +89,13 @@ export const mdxComponents: MDXComponents = {
       </code>
     );
   },
-  pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
+  pre: ({ children }) => {
+    const child = children as React.ReactElement<{ className?: string; children?: ReactNode }>;
+    if (child?.props?.className?.includes("language-mermaid")) {
+      return <Mermaid chart={extractText(child.props.children)} />;
+    }
+    return <CodeBlock>{children}</CodeBlock>;
+  },
   img: ({ src, alt }) => {
     if (!src) return null;
 

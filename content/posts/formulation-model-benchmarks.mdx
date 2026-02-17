@@ -14,14 +14,14 @@ i don't trust public benchmarks. so i ran my own.
 
 i have an autonomous coding loop. the short version:
 
-<Mermaid chart={`
+```mermaid
 flowchart LR
     A["task"] --> B["formulation LLM"]
     B -->|"instruction"| C["claude code"]
     C --> D["done?"]
     D -->|"yes"| E["commit"]
     D -->|"timeout"| F["fail"]
-`} />
+```
 
 a task comes in from a backlog. a **formulation model** reads it and writes a detailed instruction — what to build, which files, what success looks like. then claude code executes that instruction. same executor every time.
 
