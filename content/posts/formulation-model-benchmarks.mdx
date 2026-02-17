@@ -1,0 +1,135 @@
+---
+title: "i ran my own llm benchmarks (52 cycles, 6 models)"
+description: "instead of trusting leaderboards, i a/b tested free openrouter models on real coding tasks. here's what actually works."
+date: "2026-02-17"
+tags: ["llm", "benchmarks", "openrouter", "engineering"]
+published: true
+---
+
+i don't trust public benchmarks. so i ran my own.
+
+![science vibes](https://media.giphy.com/media/HUplkVCPY7jTW/giphy.gif)
+
+## context
+
+i have an autonomous coding loop. the short version:
+
+<Mermaid chart={`
+flowchart LR
+    A[task] --> B[formulation LLM]
+    B -->|instruction| C[claude code]
+    C --> D{done?}
+    D -->|yes| E[commit]
+    D -->|timeout| F[fail]
+`} />
+
+a task comes in from a backlog. a **formulation model** reads it and writes a detailed instruction — what to build, which files, what success looks like. then claude code executes that instruction. same executor every time.
+
+the question: which formulation model actually produces instructions that lead to working code?
+
+## the test
+
+6 free models on openrouter, randomly assigned per cycle:
+
+```
+minimax/minimax-m2.5
+z-ai/glm-5
+qwen/qwen3-coder-next
+qwen/qwen3.5-plus-02-15
+moonshotai/kimi-k2.5
+google/gemini-2.5-flash-preview
+```
+
+success = claude code finishes within 300 seconds, tests pass, files created. failure = timeout, crash, or incomplete.
+
+52 active cycles.
+
+## raw results
+
+| model | cycles | successes | rate |
+|-------|--------|-----------|------|
+| minimax/minimax-m2.5 | 6 | 5 | **83.3%** |
+| z-ai/glm-5 | 9 | 7 | **77.8%** |
+| qwen/qwen3-coder-next | 13 | 10 | **76.9%** |
+| qwen/qwen3.5-plus-02-15 | 6 | 3 | 50.0% |
+| moonshotai/kimi-k2.5 | 7 | 3 | 42.9% |
+| google/gemini-2.5-flash | 2 | 1 | 50.0% |
+
+from the validation report i built to track this:
+
+```
+============================================================
+  formulation model performance
+============================================================
+
+  model                                    attempts  success     rate
+  ---------------------------------------- -------- -------- --------
+  minimax/minimax-m2.5                            6        5    83.3%
+  z-ai/glm-5                                      9        7    77.8%
+  qwen/qwen3-coder-next                          13       10    76.9%
+  qwen/qwen3.5-plus-02-15                         6        3    50.0%
+  moonshotai/kimi-k2.5                             7        3    42.9%
+  google/gemini-2.5-flash                          2        1    50.0%
+```
+
+top 3 clustered at 77-83%. then a gap. then the bottom half.
+
+## why kimi failed
+
+this is the interesting part. kimi isn't dumb — it's too ambitious.
+
+here's what kimi would formulate:
+
+> "implement a fisher's exact test for statistical significance, build a comprehensive a/b validation framework with multiple dimensions of analysis, add cosine similarity for behavioral drift detection..."
+
+claude code would start building this, burn through 300 seconds of tool calls, and timeout. 64 tools used, zero files committed.
+
+meanwhile minimax would write:
+
+> "add these fields to metrics.py. update the report. write tests. run pytest."
+
+done in 60 seconds.
+
+**over-specification kills.** claude code is smart enough to figure out details — it needs direction and a realistic scope, not a research paper.
+
+## qwen3.5-plus vs qwen3-coder-next
+
+same model family. 27-point gap. the "plus" adds verbosity that doesn't help. the coder variant is more focused, writes tighter instructions.
+
+## what i did with this
+
+trimmed to the top 3:
+
+```python
+# tested via a/b (2026-02-17, 52 cycles).
+# top 3: minimax 83%, glm-5 78%, qwen3-coder 77%.
+# dropped: kimi (43%), qwen3.5-plus (50%), gemini-flash (50%).
+DEFAULT_FORMULATION_MODELS = [
+    "minimax/minimax-m2.5",
+    "z-ai/glm-5",
+    "qwen/qwen3-coder-next",
+]
+```
+
+added a `--model` flag so i can a/b test new models later without editing code:
+
+```bash
+# pin to one model
+my-loop --autonomy --model minimax/minimax-m2.5
+
+# test a subset
+my-loop --autonomy --model z-ai/glm-5 --model qwen/qwen3-coder-next
+```
+
+## limitations
+
+- sample sizes are small. 6-13 cycles per model. directional, not statistically significant.
+- gemini only got 2 cycles before i pulled it. can't judge that.
+- all cycles ran against the same task pool. different tasks might shuffle the rankings.
+- the executor timeout (300s) punishes ambitious formulations. if i bumped it to 600s, kimi might climb.
+
+## the point
+
+run your own benchmarks on your own workload. takes a few hours. the results will contradict the leaderboards because leaderboards measure capability and you care about reliability in context.
+
+for instruction-writing, concise wins. brevity is an asset. could be different for your use case.
